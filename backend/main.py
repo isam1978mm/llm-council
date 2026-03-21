@@ -1,5 +1,5 @@
 """FastAPI backend for LLM Council."""
-
+from . import config as app_config
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
