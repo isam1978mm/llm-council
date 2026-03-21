@@ -191,7 +191,26 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
         }
     )
 
+@app.get("/api/config")
+async def get_config():
+    """Get current council configuration."""
+    cfg = app_config.load_config()
+    return cfg
 
+
+@app.post("/api/config")
+async def update_config(data: dict):
+    """Update council models configuration."""
+    council_models = data.get("council_models", app_config.DEFAULT_COUNCIL_MODELS)
+    chairman_model = data.get("chairman_model", app_config.DEFAULT_CHAIRMAN_MODEL)
+    
+    app_config.save_config(council_models, chairman_model)
+    
+    # Update runtime values
+    app_config.COUNCIL_MODELS = council_models
+    app_config.CHAIRMAN_MODEL = chairman_model
+    
+    return {"status": "ok", "council_models": council_models, "chairman_model": chairman_model}
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)
