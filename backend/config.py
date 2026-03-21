@@ -13,7 +13,7 @@ COUNCIL_MODELS = [
     "google/gemini-2.5-flash-lite",
     "deepseek/deepseek-chat-v3.1",
     "openai/gpt-5-mini",
-]
+] 
 
 # Chairman model - synthesizes final response
 CHAIRMAN_MODEL = "openai/gpt-5-mini"
