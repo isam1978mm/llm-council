@@ -65,7 +65,6 @@ export const api = {
       }
     }
   },
-  // ← NEW: Config endpoints
   async getConfig() {
     const response = await fetch(`${API_BASE}/api/config`);
     if (!response.ok) throw new Error('Failed to get config');
@@ -78,6 +77,12 @@ export const api = {
       body: JSON.stringify(config),
     });
     if (!response.ok) throw new Error('Failed to save config');
+    return response.json();
+  },
+  // ← NEW: Leaderboard stats
+  async getStats() {
+    const response = await fetch(`${API_BASE}/api/stats`);
+    if (!response.ok) throw new Error('Failed to get stats');
     return response.json();
   },
 };
