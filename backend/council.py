@@ -3,6 +3,7 @@
 from typing import List, Dict, Any, Tuple
 from .openrouter import query_models_parallel, query_model
 from .config import load_config
+from . import storage
 
 
 async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
@@ -242,6 +243,10 @@ async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
     stage2_results, label_to_model = await stage2_collect_rankings(user_query, stage1_results)
 
     aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
+
+    # ← NEW: Record model stats in Supabase
+    all_models = [r["model"] for r in stage1_results]
+    storage.record_model_appearances(all_models, aggregate_rankings)
 
     stage3_result = await stage3_synthesize_final(
         user_query,
