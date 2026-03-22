@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
 import Settings from './Settings';
+import Leaderboard from './Leaderboard';
 import { api } from './api';
 import './App.css';
 
@@ -11,13 +12,12 @@ function App() {
   const [currentConversation, setCurrentConversation] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
 
-  // Load conversations on mount
   useEffect(() => {
     loadConversations();
   }, []);
 
-  // Load conversation details when selected
   useEffect(() => {
     if (currentConversationId) {
       loadConversation(currentConversationId);
@@ -178,6 +178,26 @@ function App() {
 
   return (
     <div className="app">
+      {/* Leaderboard button */}
+      <button
+        onClick={() => setShowLeaderboard(true)}
+        style={{
+          position: 'fixed',
+          top: 16,
+          right: 70,
+          zIndex: 999,
+          background: '#2a2a3e',
+          border: '1px solid #444',
+          borderRadius: 8,
+          color: '#fff',
+          padding: '8px 14px',
+          cursor: 'pointer',
+          fontSize: 16,
+        }}
+      >
+        🏆
+      </button>
+
       {/* Settings button */}
       <button
         onClick={() => setShowSettings(true)}
@@ -198,7 +218,8 @@ function App() {
         ⚙️
       </button>
 
-      {/* Settings modal */}
+      {/* Modals */}
+      {showLeaderboard && <Leaderboard onClose={() => setShowLeaderboard(false)} />}
       {showSettings && <Settings onClose={() => setShowSettings(false)} />}
 
       <Sidebar
