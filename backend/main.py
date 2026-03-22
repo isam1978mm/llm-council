@@ -211,6 +211,16 @@ async def update_config(data: dict):
     app_config.CHAIRMAN_MODEL = chairman_model
     
     return {"status": "ok", "council_models": council_models, "chairman_model": chairman_model}
+
+
+@app.get("/api/stats")
+async def get_stats():
+    """Get model performance stats."""
+    from . import storage
+    return storage.get_model_stats()
+
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)
