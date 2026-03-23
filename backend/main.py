@@ -219,7 +219,21 @@ async def get_stats():
     from . import storage
     return storage.get_model_stats()
 
-
+@app.get("/api/test-stats")
+async def test_stats():
+    """Test writing to model_stats."""
+    try:
+        from . import storage
+        storage.record_model_appearances(
+            ["test/model-a", "test/model-b"],
+            [
+                {"model": "test/model-a", "average_rank": 1.0},
+                {"model": "test/model-b", "average_rank": 2.0}
+            ]
+        )
+        return {"status": "ok"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 if __name__ == "__main__":
     import uvicorn
