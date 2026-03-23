@@ -13,34 +13,52 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
 
   useEffect(() => {
-    loadConversations();
+    let isActive = true;
+
+    const fetchConversations = async () => {
+      try {
+        const convs = await api.listConversations();
+        if (isActive) {
+          setConversations(convs);
+        }
+      } catch (error) {
+        console.error('Failed to load conversations:', error);
+      }
+    };
+
+    fetchConversations();
+
+    return () => {
+      isActive = false;
+    };
   }, []);
 
   useEffect(() => {
-    if (currentConversationId) {
-      loadConversation(currentConversationId);
-    }
+    if (!currentConversationId) return undefined;
+
+    let isActive = true;
+
+    const fetchConversation = async () => {
+      try {
+        const conv = await api.getConversation(currentConversationId);
+        if (isActive) {
+          setCurrentConversation(conv);
+        }
+      } catch (error) {
+        console.error('Failed to load conversation:', error);
+      }
+    };
+
+    fetchConversation();
+
+    return () => {
+      isActive = false;
+    };
   }, [currentConversationId]);
-
-  const loadConversations = async () => {
-    try {
-      const convs = await api.listConversations();
-      setConversations(convs);
-    } catch (error) {
-      console.error('Failed to load conversations:', error);
-    }
-  };
-
-  const loadConversation = async (id) => {
-    try {
-      const conv = await api.getConversation(id);
-      setCurrentConversation(conv);
-    } catch (error) {
-      console.error('Failed to load conversation:', error);
-    }
-  };
 
   const handleNewConversation = async () => {
     try {
@@ -50,6 +68,7 @@ function App() {
         ...conversations,
       ]);
       setCurrentConversationId(newConv.id);
+      setIsSidebarOpen(false);
     } catch (error) {
       console.error('Failed to create conversation:', error);
     }
@@ -57,6 +76,7 @@ function App() {
 
   const handleSelectConversation = (id) => {
     setCurrentConversationId(id);
+    setIsSidebarOpen(false);
   };
 
   const handleSendMessage = async (content) => {
@@ -149,11 +169,15 @@ function App() {
             break;
 
           case 'title_complete':
-            loadConversations();
+            api.listConversations().then(setConversations).catch((error) => {
+              console.error('Failed to load conversations:', error);
+            });
             break;
 
           case 'complete':
-            loadConversations();
+            api.listConversations().then(setConversations).catch((error) => {
+              console.error('Failed to load conversations:', error);
+            });
             setIsLoading(false);
             break;
 
@@ -177,56 +201,54 @@ function App() {
   };
 
   return (
-    <div className="app">
-      {/* Leaderboard button */}
-      <button
-        onClick={() => setShowLeaderboard(true)}
-        style={{
-          position: 'fixed',
-          top: 16,
-          right: 70,
-          zIndex: 999,
-          background: '#2a2a3e',
-          border: '1px solid #444',
-          borderRadius: 8,
-          color: '#fff',
-          padding: '8px 14px',
-          cursor: 'pointer',
-          fontSize: 16,
-        }}
-      >
-        🏆
-      </button>
+    <div className={`app ${isSidebarOpen ? 'sidebar-open' : ''}`}>
+      <div className="app-toolbar">
+        <button
+          type="button"
+          className="toolbar-button mobile-only"
+          onClick={() => setIsSidebarOpen((prev) => !prev)}
+          aria-label={isSidebarOpen ? 'Close conversations' : 'Open conversations'}
+          aria-expanded={isSidebarOpen}
+        >
+          ☰
+        </button>
 
-      {/* Settings button */}
-      <button
-        onClick={() => setShowSettings(true)}
-        style={{
-          position: 'fixed',
-          top: 16,
-          right: 16,
-          zIndex: 999,
-          background: '#2a2a3e',
-          border: '1px solid #444',
-          borderRadius: 8,
-          color: '#fff',
-          padding: '8px 14px',
-          cursor: 'pointer',
-          fontSize: 16,
-        }}
-      >
-        ⚙️
-      </button>
+        <div className="toolbar-actions">
+          <button
+            type="button"
+            className="toolbar-button"
+            onClick={() => setShowLeaderboard(true)}
+            aria-label="Open leaderboard"
+          >
+            🏆
+          </button>
+          <button
+            type="button"
+            className="toolbar-button"
+            onClick={() => setShowSettings(true)}
+            aria-label="Open settings"
+          >
+            ⚙️
+          </button>
+        </div>
+      </div>
 
-      {/* Modals */}
       {showLeaderboard && <Leaderboard onClose={() => setShowLeaderboard(false)} />}
       {showSettings && <Settings onClose={() => setShowSettings(false)} />}
+
+      <div
+        className="sidebar-backdrop"
+        onClick={() => setIsSidebarOpen(false)}
+        aria-hidden={!isSidebarOpen}
+      />
 
       <Sidebar
         conversations={conversations}
         currentConversationId={currentConversationId}
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
       />
       <ChatInterface
         conversation={currentConversation}

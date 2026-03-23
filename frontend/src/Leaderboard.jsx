@@ -79,8 +79,8 @@ export default function Leaderboard({ onClose }) {
   );
 }
 
-const overlay = { position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000 };
-const modal = { background:"#1e1e2e", padding:30, borderRadius:12, width:640, maxWidth:"90vw", color:"#fff", maxHeight:"80vh", overflowY:"auto" };
+const overlay = { position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center", padding:"16px", zIndex:1000 };
+const modal = { background:"#1e1e2e", padding:30, borderRadius:12, width:"min(640px, calc(100vw - 32px))", color:"#fff", maxHeight:"calc(100vh - 32px)", overflowY:"auto" };
 const closeBtn = { background:"#333", border:"none", borderRadius:6, color:"#fff", padding:"4px 10px", cursor:"pointer", fontSize:16 };
 const th = { padding:"8px 12px", fontWeight:600 };
 const td = { padding:"10px 12px", color:"#ddd" };
