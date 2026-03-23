@@ -1,5 +1,6 @@
 """3-stage LLM Council orchestration."""
 
+import sys
 from typing import List, Dict, Any, Tuple
 from .openrouter import query_models_parallel, query_model
 from .config import load_config
@@ -245,16 +246,16 @@ async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
     aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
 
     # Record model stats in Supabase
-    print(f"DEBUG: Recording stats for models: {[r['model'] for r in stage1_results]}")
-    print(f"DEBUG: aggregate_rankings: {aggregate_rankings}")
+    print(f"DEBUG: Recording stats for models: {[r['model'] for r in stage1_results]}", flush=True, file=sys.stderr)
+    print(f"DEBUG: aggregate_rankings: {aggregate_rankings}", flush=True, file=sys.stderr)
     try:
         all_models = [r["model"] for r in stage1_results]
         storage.record_model_appearances(all_models, aggregate_rankings)
-        print(f"DEBUG: Stats recorded successfully")
+        print("DEBUG: Stats recorded successfully", flush=True, file=sys.stderr)
     except Exception as e:
         import traceback
-        print(f"STATS ERROR: {e}")
-        traceback.print_exc()
+        print(f"STATS ERROR: {e}", flush=True, file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
 
     stage3_result = await stage3_synthesize_final(
         user_query,
