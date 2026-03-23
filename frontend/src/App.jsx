@@ -275,6 +275,7 @@ function App() {
         onToggleCollapse={handleSidebarToggle}
       />
       <ChatInterface
+        key={currentConversationId || 'empty-conversation'}
         conversation={currentConversation}
         onSendMessage={handleSendMessage}
         isLoading={isLoading}
