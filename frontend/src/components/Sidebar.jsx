@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import './Sidebar.css';
 
 const MIN_WIDTH = 240;
@@ -22,6 +22,20 @@ export default function Sidebar({
   onToggleCollapse,
 }) {
   const [isResizing, setIsResizing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredConversations = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+
+    if (!normalizedQuery) {
+      return conversations;
+    }
+
+    return conversations.filter((conversation) => {
+      const title = (conversation.title || 'New Conversation').toLowerCase();
+      return title.includes(normalizedQuery);
+    });
+  }, [conversations, searchQuery]);
 
   useEffect(() => {
     if (!isResizing) {
@@ -75,6 +89,20 @@ export default function Sidebar({
             <span className="new-conversation-icon">+</span>
             {!isCollapsed && <span>New Conversation</span>}
           </button>
+
+          {!isCollapsed && (
+            <label className="conversation-search">
+              <span className="conversation-search-icon" aria-hidden="true">🔎</span>
+              <input
+                type="search"
+                className="conversation-search-input"
+                placeholder="Search chats"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                aria-label="Search chats"
+              />
+            </label>
+          )}
         </div>
 
         <div className="conversation-list">
@@ -82,8 +110,12 @@ export default function Sidebar({
             <div className="no-conversations">
               {isCollapsed ? '—' : 'No conversations yet'}
             </div>
+          ) : filteredConversations.length === 0 ? (
+            <div className="no-conversations">
+              No chats match your search
+            </div>
           ) : (
-            conversations.map((conv) => (
+            filteredConversations.map((conv) => (
               <div
                 key={conv.id}
                 className={`conversation-item ${
