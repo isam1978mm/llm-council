@@ -1,10 +1,13 @@
 """3-stage LLM Council orchestration."""
 
-import sys
+import logging
 from typing import List, Dict, Any, Tuple
 from .openrouter import query_models_parallel, query_model
 from .config import load_config
 from . import storage
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
@@ -246,16 +249,14 @@ async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
     aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
 
     # Record model stats in Supabase
-    print(f"DEBUG: Recording stats for models: {[r['model'] for r in stage1_results]}", flush=True, file=sys.stderr)
-    print(f"DEBUG: aggregate_rankings: {aggregate_rankings}", flush=True, file=sys.stderr)
+    logger.info(f"DEBUG: Recording stats for models: {[r['model'] for r in stage1_results]}")
+    logger.info(f"DEBUG: aggregate_rankings: {aggregate_rankings}")
     try:
         all_models = [r["model"] for r in stage1_results]
         storage.record_model_appearances(all_models, aggregate_rankings)
-        print("DEBUG: Stats recorded successfully", flush=True, file=sys.stderr)
+        logger.info("DEBUG: Stats recorded successfully")
     except Exception as e:
-        import traceback
-        print(f"STATS ERROR: {e}", flush=True, file=sys.stderr)
-        traceback.print_exc(file=sys.stderr)
+        logger.exception(f"STATS ERROR: {e}")
 
     stage3_result = await stage3_synthesize_final(
         user_query,
