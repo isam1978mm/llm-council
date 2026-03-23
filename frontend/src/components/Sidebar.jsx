@@ -15,6 +15,7 @@ export default function Sidebar({
   currentConversationId,
   onSelectConversation,
   onNewConversation,
+  onDeleteConversation,
   width,
   isCollapsed,
   onResize,
@@ -83,30 +84,50 @@ export default function Sidebar({
             </div>
           ) : (
             conversations.map((conv) => (
-              <button
-                type="button"
+              <div
                 key={conv.id}
                 className={`conversation-item ${
                   conv.id === currentConversationId ? 'active' : ''
                 } ${isCollapsed ? 'collapsed' : ''}`}
-                onClick={() => onSelectConversation(conv.id)}
-                title={conv.title || 'New Conversation'}
               >
-                {isCollapsed ? (
-                  <span className="conversation-collapsed-label">
-                    {getConversationLabel(conv)}
-                  </span>
-                ) : (
-                  <>
-                    <div className="conversation-title">
-                      {conv.title || 'New Conversation'}
-                    </div>
-                    <div className="conversation-meta">
-                      {conv.message_count} messages
-                    </div>
-                  </>
+                <button
+                  type="button"
+                  className="conversation-select-btn"
+                  onClick={() => onSelectConversation(conv.id)}
+                  title={conv.title || 'New Conversation'}
+                >
+                  {isCollapsed ? (
+                    <span className="conversation-collapsed-label">
+                      {getConversationLabel(conv)}
+                    </span>
+                  ) : (
+                    <>
+                      <div className="conversation-title">
+                        {conv.title || 'New Conversation'}
+                      </div>
+                      <div className="conversation-meta">
+                        {conv.message_count} messages
+                      </div>
+                    </>
+                  )}
+                </button>
+                {!isCollapsed && (
+                  <button
+                    type="button"
+                    className="conversation-delete-btn"
+                    aria-label={`Delete ${conv.title || 'conversation'}`}
+                    title="Delete conversation"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (window.confirm(`Delete "${conv.title || 'New Conversation'}"?`)) {
+                        onDeleteConversation(conv.id);
+                      }
+                    }}
+                  >
+                    ×
+                  </button>
                 )}
-              </button>
+              </div>
             ))
           )}
         </div>
