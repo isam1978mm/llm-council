@@ -70,9 +70,9 @@ export default function Settings({ onClose }) {
   );
 }
 
-const overlay = { position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000 };
-const modal = { background:"#1e1e2e", padding:30, borderRadius:12, minWidth:400, color:"#fff" };
-const row = { display:"flex", alignItems:"center", gap:10, marginBottom:8 };
+const overlay = { position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", display:"flex", alignItems:"center", justifyContent:"center", padding:"16px", zIndex:1000 };
+const modal = { background:"#1e1e2e", padding:30, borderRadius:12, width:"min(640px, calc(100vw - 32px))", maxHeight:"calc(100vh - 32px)", overflowY:"auto", color:"#fff" };
+const row = { display:"flex", alignItems:"center", gap:10, marginBottom:8, flexWrap:"wrap" };
 const input = { background:"#2a2a3e", border:"1px solid #444", borderRadius:6, padding:"6px 10px", color:"#fff", flex:1 };
 const removeBtn = { background:"#c0392b", border:"none", borderRadius:6, color:"#fff", padding:"4px 8px", cursor:"pointer" };
 const addBtn = { background:"#2980b9", border:"none", borderRadius:6, color:"#fff", padding:"6px 12px", cursor:"pointer" };
