@@ -76,6 +76,22 @@ function App() {
     setCurrentConversationId(id);
   };
 
+  const handleDeleteConversation = async (id) => {
+    try {
+      await api.deleteConversation(id);
+
+      setConversations((prev) => prev.filter((conversation) => conversation.id !== id));
+
+      if (currentConversationId === id) {
+        setCurrentConversationId(null);
+        setCurrentConversation(null);
+        setIsLoading(false);
+      }
+    } catch (error) {
+      console.error('Failed to delete conversation:', error);
+    }
+  };
+
   const handleSidebarResize = (nextWidth) => {
     setSidebarWidth(Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, nextWidth)));
   };
@@ -252,6 +268,7 @@ function App() {
         currentConversationId={currentConversationId}
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
+        onDeleteConversation={handleDeleteConversation}
         width={sidebarWidth}
         isCollapsed={isSidebarCollapsed}
         onResize={handleSidebarResize}

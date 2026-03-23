@@ -47,6 +47,12 @@ def save_conversation(conversation: Dict[str, Any]):
     get_client().table("conversations").upsert(conversation).execute()
 
 
+def delete_conversation(conversation_id: str) -> bool:
+    """Delete a conversation from Supabase."""
+    result = get_client().table("conversations").delete().eq("id", conversation_id).execute()
+    return bool(result.data)
+
+
 def list_conversations() -> List[Dict[str, Any]]:
     """List all conversations (metadata only)."""
     result = (
