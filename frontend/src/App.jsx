@@ -6,6 +6,10 @@ import Leaderboard from './Leaderboard';
 import { api } from './api';
 import './App.css';
 
+const DEFAULT_SIDEBAR_WIDTH = 320;
+const MIN_SIDEBAR_WIDTH = 240;
+const MAX_SIDEBAR_WIDTH = 480;
+
 function App() {
   const [conversations, setConversations] = useState([]);
   const [currentConversationId, setCurrentConversationId] = useState(null);
@@ -13,34 +17,47 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  useEffect(() => {
-    loadConversations();
-  }, []);
-
-  useEffect(() => {
-    if (currentConversationId) {
-      loadConversation(currentConversationId);
-    }
-  }, [currentConversationId]);
-
-  const loadConversations = async () => {
+  async function loadConversations() {
     try {
       const convs = await api.listConversations();
       setConversations(convs);
     } catch (error) {
       console.error('Failed to load conversations:', error);
     }
-  };
+  }
 
-  const loadConversation = async (id) => {
+  async function loadConversation(id) {
     try {
       const conv = await api.getConversation(id);
       setCurrentConversation(conv);
     } catch (error) {
       console.error('Failed to load conversation:', error);
     }
-  };
+  }
+
+
+  useEffect(() => {
+    const initializeConversations = async () => {
+      await loadConversations();
+    };
+
+    initializeConversations();
+  }, []);
+
+  useEffect(() => {
+    if (!currentConversationId) {
+      return;
+    }
+
+    const initializeConversation = async () => {
+      await loadConversation(currentConversationId);
+    };
+
+    initializeConversation();
+  }, [currentConversationId]);
 
   const handleNewConversation = async () => {
     try {
@@ -57,6 +74,14 @@ function App() {
 
   const handleSelectConversation = (id) => {
     setCurrentConversationId(id);
+  };
+
+  const handleSidebarResize = (nextWidth) => {
+    setSidebarWidth(Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, nextWidth)));
+  };
+
+  const handleSidebarToggle = () => {
+    setIsSidebarCollapsed((prev) => !prev);
   };
 
   const handleSendMessage = async (content) => {
@@ -227,6 +252,10 @@ function App() {
         currentConversationId={currentConversationId}
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
+        width={sidebarWidth}
+        isCollapsed={isSidebarCollapsed}
+        onResize={handleSidebarResize}
+        onToggleCollapse={handleSidebarToggle}
       />
       <ChatInterface
         conversation={currentConversation}
