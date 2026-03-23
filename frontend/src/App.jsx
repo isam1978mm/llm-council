@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
 import Settings from './Settings';
@@ -9,6 +9,24 @@ import './App.css';
 const DEFAULT_SIDEBAR_WIDTH = 320;
 const MIN_SIDEBAR_WIDTH = 240;
 const MAX_SIDEBAR_WIDTH = 480;
+const THEME_STORAGE_KEY = 'llm-council-theme';
+
+function getSystemTheme() {
+  if (typeof window === 'undefined') {
+    return 'light';
+  }
+
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function getStoredThemePreference() {
+  if (typeof window === 'undefined') {
+    return 'auto';
+  }
+
+  const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+  return ['light', 'dark', 'auto'].includes(storedTheme) ? storedTheme : 'auto';
+}
 
 function App() {
   const [conversations, setConversations] = useState([]);
@@ -19,6 +37,13 @@ function App() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [themePreference, setThemePreference] = useState(getStoredThemePreference);
+  const [systemTheme, setSystemTheme] = useState(getSystemTheme);
+
+  const activeTheme = useMemo(
+    () => (themePreference === 'auto' ? systemTheme : themePreference),
+    [systemTheme, themePreference],
+  );
 
   async function loadConversations() {
     try {
@@ -37,7 +62,6 @@ function App() {
       console.error('Failed to load conversation:', error);
     }
   }
-
 
   useEffect(() => {
     const initializeConversations = async () => {
@@ -58,6 +82,36 @@ function App() {
 
     initializeConversation();
   }, [currentConversationId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (event) => {
+      setSystemTheme(event.matches ? 'dark' : 'light');
+    };
+
+    mediaQuery.addEventListener('change', handleChange);
+
+    return () => {
+      mediaQuery.removeEventListener('change', handleChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    window.localStorage.setItem(THEME_STORAGE_KEY, themePreference);
+  }, [themePreference]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = activeTheme;
+    document.documentElement.style.colorScheme = activeTheme;
+  }, [activeTheme]);
 
   const handleNewConversation = async () => {
     try {
@@ -219,49 +273,33 @@ function App() {
 
   return (
     <div className="app">
-      {/* Leaderboard button */}
       <button
+        type="button"
+        className="app-action-button"
         onClick={() => setShowLeaderboard(true)}
-        style={{
-          position: 'fixed',
-          top: 16,
-          right: 70,
-          zIndex: 999,
-          background: '#2a2a3e',
-          border: '1px solid #444',
-          borderRadius: 8,
-          color: '#fff',
-          padding: '8px 14px',
-          cursor: 'pointer',
-          fontSize: 16,
-        }}
+        aria-label="Open leaderboard"
       >
         🏆
       </button>
 
-      {/* Settings button */}
       <button
+        type="button"
+        className="app-action-button settings-button"
         onClick={() => setShowSettings(true)}
-        style={{
-          position: 'fixed',
-          top: 16,
-          right: 16,
-          zIndex: 999,
-          background: '#2a2a3e',
-          border: '1px solid #444',
-          borderRadius: 8,
-          color: '#fff',
-          padding: '8px 14px',
-          cursor: 'pointer',
-          fontSize: 16,
-        }}
+        aria-label="Open settings"
       >
         ⚙️
       </button>
 
-      {/* Modals */}
       {showLeaderboard && <Leaderboard onClose={() => setShowLeaderboard(false)} />}
-      {showSettings && <Settings onClose={() => setShowSettings(false)} />}
+      {showSettings && (
+        <Settings
+          onClose={() => setShowSettings(false)}
+          themePreference={themePreference}
+          onThemeChange={setThemePreference}
+          activeTheme={activeTheme}
+        />
+      )}
 
       <Sidebar
         conversations={conversations}
