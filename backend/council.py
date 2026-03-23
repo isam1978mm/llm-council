@@ -244,12 +244,17 @@ async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
 
     aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
 
-    # Record model stats in Supabase (with error handling)
+    # Record model stats in Supabase
+    print(f"DEBUG: Recording stats for models: {[r['model'] for r in stage1_results]}")
+    print(f"DEBUG: aggregate_rankings: {aggregate_rankings}")
     try:
         all_models = [r["model"] for r in stage1_results]
         storage.record_model_appearances(all_models, aggregate_rankings)
+        print(f"DEBUG: Stats recorded successfully")
     except Exception as e:
-        print(f"Warning: Failed to record model stats: {e}")
+        import traceback
+        print(f"STATS ERROR: {e}")
+        traceback.print_exc()
 
     stage3_result = await stage3_synthesize_final(
         user_query,
