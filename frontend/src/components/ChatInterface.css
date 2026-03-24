@@ -85,6 +85,92 @@
   font-style: italic;
 }
 
+.assistant-markdown {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+}
+
+.codex-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px 0;
+}
+
+.codex-toolbar-title {
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.codex-toolbar-status,
+.codex-toolbar-meta {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.codex-toolbar-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.codex-toolbar-button {
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  font: inherit;
+}
+
+.codex-toolbar-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.codex-callout {
+  margin-bottom: 20px;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border-primary);
+}
+
+.codex-callout-title {
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.codex-callout-warning {
+  background: var(--tldr-header-bg);
+  border-color: var(--tldr-border);
+}
+
+.codex-callout-error {
+  background: #fff1f1;
+  border-color: #e6b5b5;
+  color: #8a2d2d;
+}
+
+[data-theme="dark"] .codex-callout-error {
+  background: #351b1b;
+  border-color: #6a2d2d;
+  color: #ffb5b5;
+}
+
+.codex-callout pre,
+.codex-callout p {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .spinner {
   width: 20px;
   height: 20px;
@@ -166,6 +252,11 @@
   .messages-container {
     padding: 16px;
     padding-top: 60px;
+  }
+
+  .codex-toolbar {
+    flex-direction: column;
+    padding: 68px 16px 0;
   }
 
   .input-form {

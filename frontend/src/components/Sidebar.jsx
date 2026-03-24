@@ -20,6 +20,11 @@ export default function Sidebar({
   onClose,
   onLogout,
   userEmail,
+  searchEnabled = true,
+  showLeaderboard = true,
+  showSettings = true,
+  showLogout = true,
+  appTitle = 'LLM Council',
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [width, setWidth] = useState(260);
@@ -29,7 +34,7 @@ export default function Sidebar({
   const startWidth = useRef(0);
 
   const [query, setQuery] = useState('');
-  const [searchResults, setSearchResults] = useState(null); // null = not searching
+  const [searchResults, setSearchResults] = useState(null);
   const [searching, setSearching] = useState(false);
   const debounceRef = useRef(null);
 
@@ -67,6 +72,9 @@ export default function Sidebar({
     const value = e.target.value;
     setQuery(value);
     clearTimeout(debounceRef.current);
+    if (!searchEnabled) {
+      return;
+    }
     if (!value.trim()) {
       setSearchResults(null);
       return;
@@ -118,31 +126,33 @@ export default function Sidebar({
         >
           {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
         </button>
-        <h1 className="sidebar-title">LLM Council</h1>
+        <h1 className="sidebar-title">{appTitle}</h1>
         <button className="new-conversation-btn" onClick={onNewConversation} title="New Conversation">
           <SquarePen size={16} className="btn-icon" />
           <span className="sidebar-text"> New Conversation</span>
         </button>
-        <div className="search-box sidebar-text">
-          <Search size={13} className="search-icon" />
-          <input
-            className="search-input"
-            type="text"
-            placeholder="Search conversations…"
-            value={query}
-            onChange={handleSearchChange}
-          />
-          {query && (
-            <button className="search-clear" onClick={clearSearch} title="Clear search"><X size={12} /></button>
-          )}
-        </div>
+        {searchEnabled && (
+          <div className="search-box sidebar-text">
+            <Search size={13} className="search-icon" />
+            <input
+              className="search-input"
+              type="text"
+              placeholder="Search conversations..."
+              value={query}
+              onChange={handleSearchChange}
+            />
+            {query && (
+              <button className="search-clear" onClick={clearSearch} title="Clear search"><X size={12} /></button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="sidebar-resize-handle" onMouseDown={handleResizeStart} />
 
       <div className="conversation-list">
         {searching && (
-          <div className="no-conversations sidebar-text">Searching…</div>
+          <div className="no-conversations sidebar-text">Searching...</div>
         )}
         {!searching && searchResults !== null && searchResults.length === 0 && (
           <div className="no-conversations sidebar-text">No matches found</div>
@@ -232,21 +242,29 @@ export default function Sidebar({
       </div>
 
       <div className="sidebar-footer">
-        <button className="sidebar-footer-btn" onClick={onShowLeaderboard} title="Leaderboard">
-          <Trophy size={16} className="footer-btn-icon" />
-          <span className="sidebar-text"> Leaderboard</span>
-        </button>
-        <button className="sidebar-footer-btn" onClick={onShowSettings} title="Settings">
-          <Settings size={16} className="footer-btn-icon" />
-          <span className="sidebar-text"> Settings</span>
-        </button>
-        <div className="sidebar-user sidebar-text">
-          <span className="user-email">{userEmail}</span>
-        </div>
-        <button className="sidebar-footer-btn sidebar-logout" onClick={onLogout} title="Log out">
-          <LogOut size={16} className="footer-btn-icon" />
-          <span className="sidebar-text"> Log out</span>
-        </button>
+        {showLeaderboard && (
+          <button className="sidebar-footer-btn" onClick={onShowLeaderboard} title="Leaderboard">
+            <Trophy size={16} className="footer-btn-icon" />
+            <span className="sidebar-text"> Leaderboard</span>
+          </button>
+        )}
+        {showSettings && (
+          <button className="sidebar-footer-btn" onClick={onShowSettings} title="Settings">
+            <Settings size={16} className="footer-btn-icon" />
+            <span className="sidebar-text"> Settings</span>
+          </button>
+        )}
+        {userEmail && (
+          <div className="sidebar-user sidebar-text">
+            <span className="user-email">{userEmail}</span>
+          </div>
+        )}
+        {showLogout && (
+          <button className="sidebar-footer-btn sidebar-logout" onClick={onLogout} title="Log out">
+            <LogOut size={16} className="footer-btn-icon" />
+            <span className="sidebar-text"> Log out</span>
+          </button>
+        )}
       </div>
     </div>
   );
