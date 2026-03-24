@@ -1,25 +1,37 @@
 /**
  * API client for the LLM Council backend.
  */
+import { supabase } from './supabase';
+
 /*const API_BASE = 'http://localhost:8001'; */
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8001';
+
+async function authHeaders() {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session ? { 'Authorization': `Bearer ${session.access_token}` } : {};
+}
+
 export const api = {
   async listConversations() {
-    const response = await fetch(`${API_BASE}/api/conversations`);
+    const response = await fetch(`${API_BASE}/api/conversations`, {
+      headers: await authHeaders(),
+    });
     if (!response.ok) throw new Error('Failed to list conversations');
     return response.json();
   },
   async createConversation() {
     const response = await fetch(`${API_BASE}/api/conversations`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...await authHeaders() },
       body: JSON.stringify({}),
     });
     if (!response.ok) throw new Error('Failed to create conversation');
     return response.json();
   },
   async getConversation(conversationId) {
-    const response = await fetch(`${API_BASE}/api/conversations/${conversationId}`);
+    const response = await fetch(`${API_BASE}/api/conversations/${conversationId}`, {
+      headers: await authHeaders(),
+    });
     if (!response.ok) throw new Error('Failed to get conversation');
     return response.json();
   },
@@ -28,7 +40,7 @@ export const api = {
       `${API_BASE}/api/conversations/${conversationId}/message`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...await authHeaders() },
         body: JSON.stringify({ content }),
       }
     );
@@ -40,7 +52,7 @@ export const api = {
       `${API_BASE}/api/conversations/${conversationId}/message/stream`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...await authHeaders() },
         body: JSON.stringify({ content }),
       }
     );
@@ -65,6 +77,31 @@ export const api = {
       }
     }
   },
+  async searchConversations(q) {
+    const response = await fetch(
+      `${API_BASE}/api/conversations/search?q=${encodeURIComponent(q)}`,
+      { headers: await authHeaders() }
+    );
+    if (!response.ok) throw new Error('Failed to search conversations');
+    return response.json();
+  },
+  async deleteConversation(conversationId) {
+    const response = await fetch(`${API_BASE}/api/conversations/${conversationId}`, {
+      method: 'DELETE',
+      headers: await authHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to delete conversation');
+    return response.json();
+  },
+  async renameConversation(conversationId, title) {
+    const response = await fetch(`${API_BASE}/api/conversations/${conversationId}/title`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...await authHeaders() },
+      body: JSON.stringify({ title }),
+    });
+    if (!response.ok) throw new Error('Failed to rename conversation');
+    return response.json();
+  },
   async getConfig() {
     const response = await fetch(`${API_BASE}/api/config`);
     if (!response.ok) throw new Error('Failed to get config');
@@ -79,7 +116,27 @@ export const api = {
     if (!response.ok) throw new Error('Failed to save config');
     return response.json();
   },
-  // ← NEW: Leaderboard stats
+  async listPresets() {
+    const response = await fetch(`${API_BASE}/api/presets`);
+    if (!response.ok) throw new Error('Failed to list presets');
+    return response.json();
+  },
+  async createPreset(name, council_models, chairman_model) {
+    const response = await fetch(`${API_BASE}/api/presets`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, council_models, chairman_model }),
+    });
+    if (!response.ok) throw new Error('Failed to create preset');
+    return response.json();
+  },
+  async deletePreset(presetId) {
+    const response = await fetch(`${API_BASE}/api/presets/${presetId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to delete preset');
+    return response.json();
+  },
   async getStats() {
     const response = await fetch(`${API_BASE}/api/stats`);
     if (!response.ok) throw new Error('Failed to get stats');

@@ -1,40 +1,152 @@
 .sidebar {
   width: 260px;
-  background: #f8f8f8;
-  border-right: 1px solid #e0e0e0;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-primary);
   display: flex;
   flex-direction: column;
   height: 100vh;
+  flex-shrink: 0;
+  position: relative;
+  transition: width 0.2s ease;
+  overflow: hidden;
 }
+
+.sidebar--collapsed {
+  width: 52px; /* kept in sync with COLLAPSED_WIDTH in Sidebar.jsx */
+}
+
+/* ── Header ── */
 
 .sidebar-header {
   padding: 16px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--border-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.sidebar-header h1 {
-  font-size: 18px;
-  margin: 0 0 12px 0;
-  color: #333;
+.sidebar-close {
+  display: none;
+  background: none;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 8px;
+  line-height: 1;
+  align-self: flex-end;
+  transition: background 0.15s;
 }
+
+.sidebar-close:hover {
+  background: var(--bg-hover);
+}
+
+.sidebar-toggle {
+  align-self: flex-end;
+  background: none;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 8px;
+  line-height: 1;
+  transition: background 0.15s;
+}
+
+.sidebar-toggle:hover {
+  background: var(--bg-hover);
+}
+
+.sidebar-title {
+  font-size: 18px;
+  margin: 0;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+/* ── New conversation button ── */
 
 .new-conversation-btn {
   width: 100%;
   padding: 10px;
-  background: #4a90e2;
-  border: 1px solid #4a90e2;
+  background: var(--text-accent);
+  border: 1px solid var(--text-accent);
   border-radius: 6px;
   color: #fff;
   cursor: pointer;
   font-size: 14px;
   transition: background 0.2s;
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
 }
 
 .new-conversation-btn:hover {
-  background: #357abd;
-  border-color: #357abd;
+  background: var(--text-accent-hover);
+  border-color: var(--text-accent-hover);
 }
+
+.btn-icon {
+  flex-shrink: 0;
+}
+
+/* ── Search box ── */
+
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.search-icon {
+  flex-shrink: 0;
+  opacity: 0.6;
+  display: flex;
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  min-width: 0;
+}
+
+.search-input::placeholder {
+  color: var(--text-meta);
+}
+
+.search-clear {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-meta);
+  font-size: 12px;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.search-clear:hover {
+  color: var(--text-primary);
+}
+
+.conversation-item.search-match {
+  border-left: 3px solid var(--text-accent);
+}
+
+/* ── Conversation list ── */
 
 .conversation-list {
   flex: 1;
@@ -45,34 +157,276 @@
 .no-conversations {
   padding: 16px;
   text-align: center;
-  color: #999;
+  color: var(--text-meta);
   font-size: 14px;
 }
 
 .conversation-item {
-  padding: 12px;
+  padding: 10px 12px;
   margin-bottom: 4px;
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
 }
 
 .conversation-item:hover {
-  background: #f0f0f0;
+  background: var(--bg-hover);
 }
 
 .conversation-item.active {
-  background: #e8f0fe;
-  border: 1px solid #4a90e2;
+  background: var(--bg-active);
+  border: 1px solid var(--border-active);
+}
+
+.item-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: var(--text-secondary);
 }
 
 .conversation-title {
-  color: #333;
+  color: var(--text-primary);
   font-size: 14px;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .conversation-meta {
-  color: #999;
+  color: var(--text-meta);
   font-size: 12px;
+  white-space: nowrap;
+}
+
+.conv-menu-wrap {
+  position: relative;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.menu-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  line-height: 1;
+  letter-spacing: 1px;
+  transition: background 0.15s;
+}
+
+.menu-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.conv-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  min-width: 130px;
+  overflow: hidden;
+}
+
+.conv-menu button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary);
+  text-align: left;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.conv-menu button:hover {
+  background: var(--bg-hover);
+}
+
+.conv-menu-delete:hover {
+  background: rgba(224, 82, 82, 0.1) !important;
+  color: #e05252;
+}
+
+.rename-input {
+  width: 100%;
+  border: 1px solid var(--text-accent);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 13px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  outline: none;
+  box-sizing: border-box;
+}
+
+/* ── Resize handle ── */
+
+.sidebar-resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 5px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 10;
+}
+
+.sidebar-resize-handle:hover,
+.sidebar--resizing .sidebar-resize-handle {
+  background: var(--text-accent);
+  opacity: 0.4;
+}
+
+/* ── Footer ── */
+
+.sidebar-footer {
+  border-top: 1px solid var(--border-primary);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.sidebar-footer-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.sidebar-footer-btn:hover {
+  background: var(--bg-hover);
+}
+
+.footer-btn-icon {
+  flex-shrink: 0;
+}
+
+/* ── Collapsed state (desktop only) ── */
+
+.sidebar--collapsed .sidebar-title,
+.sidebar--collapsed .sidebar-text {
+  display: none;
+}
+
+.sidebar--collapsed .sidebar-header {
+  padding: 8px;
+  align-items: center;
+}
+
+.sidebar--collapsed .sidebar-toggle {
+  align-self: center;
+}
+
+.sidebar--collapsed .new-conversation-btn {
+  padding: 10px 0;
+  justify-content: center;
+  width: 100%;
+}
+
+.sidebar--collapsed .conversation-list {
+  padding: 4px;
+}
+
+.sidebar--collapsed .conversation-item {
+  justify-content: center;
+  padding: 10px 0;
+}
+
+.sidebar--collapsed .conv-menu-wrap {
+  display: none;
+}
+
+.sidebar--collapsed .sidebar-resize-handle {
+  display: none;
+}
+
+.sidebar-user {
+  padding: 6px 12px 2px;
+}
+
+.user-email {
+  font-size: 11px;
+  color: var(--text-meta);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.sidebar-logout {
+  color: var(--text-secondary);
+}
+
+.sidebar-logout:hover {
+  background: rgba(224, 82, 82, 0.08);
+  color: #e05252;
+}
+
+.sidebar--collapsed .sidebar-footer {
+  padding: 8px 0;
+}
+
+.sidebar--collapsed .sidebar-footer-btn {
+  justify-content: center;
+  padding: 10px 0;
+}
+
+/* ── Mobile ── */
+
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    width: 280px;
+    max-width: 85vw;
+  }
+
+  .sidebar.sidebar--open {
+    transform: translateX(0);
+  }
+
+  /* Disable collapse toggle and resize handle on mobile */
+  .sidebar-toggle,
+  .sidebar-resize-handle {
+    display: none;
+  }
+
+  .sidebar-close {
+    display: block;
+  }
 }

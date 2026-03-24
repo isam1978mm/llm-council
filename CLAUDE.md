@@ -1,166 +1,92 @@
-# CLAUDE.md - Technical Notes for LLM Council
+# CLAUDE.md
 
-This file contains technical details, architectural decisions, and important implementation notes for future development sessions.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+## Commands
 
-LLM Council is a 3-stage deliberation system where multiple LLMs collaboratively answer user questions. The key innovation is anonymized peer review in Stage 2, preventing models from playing favorites.
+**Run everything (recommended):**
+```bash
+./start.sh
+```
+
+**Backend only** (from project root):
+```bash
+uv run python -m backend.main
+```
+
+**Frontend only:**
+```bash
+cd frontend && npm run dev
+```
+
+**Frontend lint:**
+```bash
+cd frontend && npm run lint
+```
+
+**Test OpenRouter connectivity:**
+```bash
+uv run python test_openrouter.py
+```
+
+## Environment Setup
+
+Create `.env` in the project root with:
+```
+OPENROUTER_API_KEY=sk-or-v1-...
+SUPABASE_URL=https://...
+SUPABASE_KEY=...
+```
+
+`SUPABASE_URL` and `SUPABASE_KEY` are required — storage.py uses Supabase (not local JSON). The Supabase instance needs two tables: `conversations` and `model_stats`.
 
 ## Architecture
 
-### Backend Structure (`backend/`)
-
-**`config.py`**
-- Contains `COUNCIL_MODELS` (list of OpenRouter model identifiers)
-- Contains `CHAIRMAN_MODEL` (model that synthesizes final answer)
-- Uses environment variable `OPENROUTER_API_KEY` from `.env`
-- Backend runs on **port 8001** (NOT 8000 - user had another app on 8000)
-
-**`openrouter.py`**
-- `query_model()`: Single async model query
-- `query_models_parallel()`: Parallel queries using `asyncio.gather()`
-- Returns dict with 'content' and optional 'reasoning_details'
-- Graceful degradation: returns None on failure, continues with successful responses
-
-**`council.py`** - The Core Logic
-- `stage1_collect_responses()`: Parallel queries to all council models
-- `stage2_collect_rankings()`:
-  - Anonymizes responses as "Response A, B, C, etc."
-  - Creates `label_to_model` mapping for de-anonymization
-  - Prompts models to evaluate and rank (with strict format requirements)
-  - Returns tuple: (rankings_list, label_to_model_dict)
-  - Each ranking includes both raw text and `parsed_ranking` list
-- `stage3_synthesize_final()`: Chairman synthesizes from all responses + rankings
-- `parse_ranking_from_text()`: Extracts "FINAL RANKING:" section, handles both numbered lists and plain format
-- `calculate_aggregate_rankings()`: Computes average rank position across all peer evaluations
-
-**`storage.py`**
-- JSON-based conversation storage in `data/conversations/`
-- Each conversation: `{id, created_at, messages[]}`
-- Assistant messages contain: `{role, stage1, stage2, stage3}`
-- Note: metadata (label_to_model, aggregate_rankings) is NOT persisted to storage, only returned via API
-
-**`main.py`**
-- FastAPI app with CORS enabled for localhost:5173 and localhost:3000
-- POST `/api/conversations/{id}/message` returns metadata in addition to stages
-- Metadata includes: label_to_model mapping and aggregate_rankings
-
-### Frontend Structure (`frontend/src/`)
-
-**`App.jsx`**
-- Main orchestration: manages conversations list and current conversation
-- Handles message sending and metadata storage
-- Important: metadata is stored in the UI state for display but not persisted to backend JSON
-
-**`components/ChatInterface.jsx`**
-- Multiline textarea (3 rows, resizable)
-- Enter to send, Shift+Enter for new line
-- User messages wrapped in markdown-content class for padding
-
-**`components/Stage1.jsx`**
-- Tab view of individual model responses
-- ReactMarkdown rendering with markdown-content wrapper
-
-**`components/Stage2.jsx`**
-- **Critical Feature**: Tab view showing RAW evaluation text from each model
-- De-anonymization happens CLIENT-SIDE for display (models receive anonymous labels)
-- Shows "Extracted Ranking" below each evaluation so users can validate parsing
-- Aggregate rankings shown with average position and vote count
-- Explanatory text clarifies that boldface model names are for readability only
-
-**`components/Stage3.jsx`**
-- Final synthesized answer from chairman
-- Green-tinted background (#f0fff0) to highlight conclusion
-
-**Styling (`*.css`)**
-- Light mode theme (not dark mode)
-- Primary color: #4a90e2 (blue)
-- Global markdown styling in `index.css` with `.markdown-content` class
-- 12px padding on all markdown content to prevent cluttered appearance
-
-## Key Design Decisions
-
-### Stage 2 Prompt Format
-The Stage 2 prompt is very specific to ensure parseable output:
-```
-1. Evaluate each response individually first
-2. Provide "FINAL RANKING:" header
-3. Numbered list format: "1. Response C", "2. Response A", etc.
-4. No additional text after ranking section
-```
-
-This strict format allows reliable parsing while still getting thoughtful evaluations.
-
-### De-anonymization Strategy
-- Models receive: "Response A", "Response B", etc.
-- Backend creates mapping: `{"Response A": "openai/gpt-5.1", ...}`
-- Frontend displays model names in **bold** for readability
-- Users see explanation that original evaluation used anonymous labels
-- This prevents bias while maintaining transparency
-
-### Error Handling Philosophy
-- Continue with successful responses if some models fail (graceful degradation)
-- Never fail the entire request due to single model failure
-- Log errors but don't expose to user unless all models fail
-
-### UI/UX Transparency
-- All raw outputs are inspectable via tabs
-- Parsed rankings shown below raw text for validation
-- Users can verify system's interpretation of model outputs
-- This builds trust and allows debugging of edge cases
-
-## Important Implementation Details
-
-### Relative Imports
-All backend modules use relative imports (e.g., `from .config import ...`) not absolute imports. This is critical for Python's module system to work correctly when running as `python -m backend.main`.
-
-### Port Configuration
-- Backend: 8001 (changed from 8000 to avoid conflict)
-- Frontend: 5173 (Vite default)
-- Update both `backend/main.py` and `frontend/src/api.js` if changing
-
-### Markdown Rendering
-All ReactMarkdown components must be wrapped in `<div className="markdown-content">` for proper spacing. This class is defined globally in `index.css`.
-
-### Model Configuration
-Models are hardcoded in `backend/config.py`. Chairman can be same or different from council members. The current default is Gemini as chairman per user preference.
-
-## Common Gotchas
-
-1. **Module Import Errors**: Always run backend as `python -m backend.main` from project root, not from backend directory
-2. **CORS Issues**: Frontend must match allowed origins in `main.py` CORS middleware
-3. **Ranking Parse Failures**: If models don't follow format, fallback regex extracts any "Response X" patterns in order
-4. **Missing Metadata**: Metadata is ephemeral (not persisted), only available in API responses
-
-## Future Enhancement Ideas
-
-- Configurable council/chairman via UI instead of config file
-- Streaming responses instead of batch loading
-- Export conversations to markdown/PDF
-- Model performance analytics over time
-- Custom ranking criteria (not just accuracy/insight)
-- Support for reasoning models (o1, etc.) with special handling
-
-## Testing Notes
-
-Use `test_openrouter.py` to verify API connectivity and test different model identifiers before adding to council. The script tests both streaming and non-streaming modes.
-
-## Data Flow Summary
+### 3-Stage Council Flow
 
 ```
 User Query
     ↓
-Stage 1: Parallel queries → [individual responses]
+Stage 1: Parallel queries → [individual responses per model]
     ↓
-Stage 2: Anonymize → Parallel ranking queries → [evaluations + parsed rankings]
+Stage 2: Anonymize responses (A/B/C...) → parallel ranking queries → [evaluations + parsed rankings]
     ↓
 Aggregate Rankings Calculation → [sorted by avg position]
     ↓
 Stage 3: Chairman synthesis with full context
     ↓
 Return: {stage1, stage2, stage3, metadata}
-    ↓
-Frontend: Display with tabs + validation UI
 ```
 
-The entire flow is async/parallel where possible to minimize latency.
+The entire flow is async/parallel where possible. `label_to_model` metadata is ephemeral — returned by the API but not persisted.
+
+### Backend (`backend/`)
+
+- **`config.py`**: Loads/saves council config to `data/council_config.json`. Defaults to `DEFAULT_COUNCIL_MODELS` and `DEFAULT_CHAIRMAN_MODEL` if no config file exists. Council models and chairman are configurable at runtime via `/api/config`.
+- **`openrouter.py`**: Async HTTP to OpenRouter. `query_model()` for single model, `query_models_parallel()` uses `asyncio.gather()`. Returns `None` on failure (graceful degradation).
+- **`council.py`**: Core logic. `stage1_collect_responses()`, `stage2_collect_rankings()`, `stage3_synthesize_final()`. Stage 2 anonymizes responses as "Response A/B/C..." and returns a `(rankings_list, label_to_model_dict)` tuple. `parse_ranking_from_text()` extracts "FINAL RANKING:" sections.
+- **`storage.py`**: Supabase-backed. Stores conversations in `conversations` table, model performance stats in `model_stats` table. `record_model_appearances()` tracks wins and average rank after each council round.
+- **`main.py`**: FastAPI on port 8001. Two message endpoints: `/message` (batch) and `/message/stream` (SSE). Stats recorded after Stage 2 in the streaming path. Config endpoints at `/api/config` (GET/POST).
+
+### Frontend (`frontend/src/`)
+
+- **`App.jsx`**: Top-level state. Manages conversations list, current conversation, and ephemeral metadata (label_to_model, aggregate_rankings). Uses SSE streaming endpoint.
+- **`components/ChatInterface.jsx`**: Textarea input — Enter to send, Shift+Enter for newline.
+- **`components/Stage1.jsx`**: Tab view of individual model responses with ReactMarkdown.
+- **`components/Stage2.jsx`**: Tab view of raw evaluations. De-anonymization is client-side (bold model names for readability). Shows "Extracted Ranking" for validation and aggregate rankings with avg position.
+- **`components/Stage3.jsx`**: Chairman's final answer, green-tinted background.
+- **`Settings.jsx`**: Modal for editing council models and chairman. Calls `/api/config` to save. Changes take effect immediately in backend.
+- **`Leaderboard.jsx`**: Reads from `/api/stats` to display historical model win rates and average rankings.
+- **`api.js`**: API base URL from `VITE_API_URL` env var, falls back to `http://localhost:8001`.
+
+### Key Implementation Details
+
+**Relative imports**: All backend modules use relative imports (`from .config import ...`). Always run as `python -m backend.main` from the project root, never from the `backend/` directory.
+
+**Stage 2 prompt format**: Requires "FINAL RANKING:" header followed by a numbered list (`1. Response C`, `2. Response A`, etc.). Fallback regex handles non-conforming output.
+
+**ReactMarkdown**: All `<ReactMarkdown>` must be wrapped in `<div className="markdown-content">` for spacing (defined in `index.css`).
+
+**Port config**: Backend on 8001, frontend on 5173. To change, update both `backend/main.py` and `frontend/src/api.js`.
+
+**Streaming**: The primary message path uses SSE (`/message/stream`). Events: `stage1_start`, `stage1_complete`, `stage2_start`, `stage2_complete`, `stage3_start`, `stage3_complete`, `title_complete`, `complete`, `error`.

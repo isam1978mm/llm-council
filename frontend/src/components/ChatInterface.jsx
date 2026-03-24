@@ -3,6 +3,9 @@ import ReactMarkdown from 'react-markdown';
 import Stage1 from './Stage1';
 import Stage2 from './Stage2';
 import Stage3 from './Stage3';
+import Stage4 from './Stage4';
+import Stage5 from './Stage5';
+import TldrCard from './TldrCard';
 import './ChatInterface.css';
 
 export default function ChatInterface({
@@ -104,6 +107,33 @@ export default function ChatInterface({
                     </div>
                   )}
                   {msg.stage3 && <Stage3 finalResponse={msg.stage3} />}
+
+                  {/* Stage 4 */}
+                  {msg.loading?.stage4 && (
+                    <div className="stage-loading">
+                      <div className="spinner"></div>
+                      <span>Running Stage 4: Council debate{msg.stage4?.length > 0 ? ` (round ${msg.stage4.length} complete)` : ''}...</span>
+                    </div>
+                  )}
+                  {msg.stage4 && msg.stage4.length > 0 && <Stage4 debate={msg.stage4} />}
+
+                  {/* Stage 5 */}
+                  {msg.loading?.stage5 && (
+                    <div className="stage-loading">
+                      <div className="spinner"></div>
+                      <span>Running Stage 5: Debate verdict...</span>
+                    </div>
+                  )}
+                  {msg.stage5 && <Stage5 verdict={msg.stage5} />}
+
+                  {/* TL;DR */}
+                  {msg.loading?.tldr && (
+                    <div className="stage-loading">
+                      <div className="spinner"></div>
+                      <span>Generating TL;DR summary...</span>
+                    </div>
+                  )}
+                  {msg.tldr && <TldrCard tldr={msg.tldr} />}
                 </div>
               )}
             </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { X, Trophy } from "lucide-react";
 import { api } from "./api";
 
 export default function Leaderboard({ onClose }) {
@@ -24,8 +25,8 @@ export default function Leaderboard({ onClose }) {
     <div style={overlay}>
       <div style={modal}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <h2 style={{ margin: 0 }}>🏆 Model Leaderboard</h2>
-          <button onClick={onClose} style={closeBtn}>✕</button>
+          <h2 style={{ margin: 0, display: "flex", alignItems: "center", gap: 8 }}><Trophy size={20} /> Model Leaderboard</h2>
+          <button onClick={onClose} style={closeBtn}><X size={16} /></button>
         </div>
 
         {loading ? (

@@ -1,8 +1,121 @@
+/* ── Theme variables ── */
+
+:root {
+  --bg-app:        #ffffff;
+  --bg-secondary:  #f8f8f8;
+  --bg-tertiary:   #fafafa;
+  --bg-hover:      #f0f0f0;
+  --bg-input:      #ffffff;
+  --bg-code:       #f5f5f5;
+  --bg-user-msg:   #f0f7ff;
+  --bg-active:     #e8f0fe;
+  --bg-aggregate:  #f0f7ff;
+  --bg-stage3:     #f0fff0;
+  --bg-stage5:     #fdf5ff;
+
+  --tldr-bg:          #fffdf0;
+  --tldr-header-bg:   #fff8d6;
+  --tldr-border:      #f0d060;
+  --tldr-accent:      #a07800;
+
+  --text-primary:   #333333;
+  --text-secondary: #666666;
+  --text-meta:      #999999;
+  --text-muted:     #888888;
+  --text-accent:    #4a90e2;
+  --text-accent-hover: #357abd;
+  --text-blue-dark: #2a7ae2;
+  --text-green:     #2d8a2d;
+
+  --border-primary:   #e0e0e0;
+  --border-light:     #d0d0d0;
+  --border-user-msg:  #d0e7ff;
+  --border-aggregate: #d0e7ff;
+  --border-stage3:    #c8e6c8;
+  --border-stage5:    #ddb8f0;
+  --border-active:    #4a90e2;
+}
+
+[data-theme="dark"] {
+  --bg-app:        #1a1a2e;
+  --bg-secondary:  #16213e;
+  --bg-tertiary:   #1e2535;
+  --bg-hover:      #252d40;
+  --bg-input:      #16213e;
+  --bg-code:       #0d1117;
+  --bg-user-msg:   #1a2540;
+  --bg-active:     #1e3060;
+  --bg-aggregate:  #1a2540;
+  --bg-stage3:     #1a2e1a;
+  --bg-stage5:     #1e1a2e;
+
+  --tldr-bg:          #1e1c10;
+  --tldr-header-bg:   #252010;
+  --tldr-border:      #5a4a10;
+  --tldr-accent:      #d4a820;
+
+  --text-primary:   #e0e0e0;
+  --text-secondary: #9090a0;
+  --text-meta:      #606080;
+  --text-muted:     #808090;
+  --text-accent:    #5aa0f0;
+  --text-accent-hover: #4a90e2;
+  --text-blue-dark: #5aa0f0;
+  --text-green:     #4ab04a;
+
+  --border-primary:   #2a2a4a;
+  --border-light:     #2a2a4a;
+  --border-user-msg:  #2a3a6a;
+  --border-aggregate: #2a3a6a;
+  --border-stage3:    #2a4a2a;
+  --border-stage5:    #4a2a6a;
+  --border-active:    #5aa0f0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg-app:        #1a1a2e;
+    --bg-secondary:  #16213e;
+    --bg-tertiary:   #1e2535;
+    --bg-hover:      #252d40;
+    --bg-input:      #16213e;
+    --bg-code:       #0d1117;
+    --bg-user-msg:   #1a2540;
+    --bg-active:     #1e3060;
+    --bg-aggregate:  #1a2540;
+    --bg-stage3:     #1a2e1a;
+    --bg-stage5:     #1e1a2e;
+
+    --tldr-bg:          #1e1c10;
+    --tldr-header-bg:   #252010;
+    --tldr-border:      #5a4a10;
+    --tldr-accent:      #d4a820;
+
+    --text-primary:   #e0e0e0;
+    --text-secondary: #9090a0;
+    --text-meta:      #606080;
+    --text-muted:     #808090;
+    --text-accent:    #5aa0f0;
+    --text-accent-hover: #4a90e2;
+    --text-blue-dark: #5aa0f0;
+    --text-green:     #4ab04a;
+
+    --border-primary:   #2a2a4a;
+    --border-light:     #2a2a4a;
+    --border-user-msg:  #2a3a6a;
+    --border-aggregate: #2a3a6a;
+    --border-stage3:    #2a4a2a;
+    --border-stage5:    #4a2a6a;
+    --border-active:    #5aa0f0;
+  }
+}
+
+/* ── Base ── */
+
 :root {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -19,7 +132,8 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #f5f5f5;
+  background: var(--bg-app);
+  color: var(--text-primary);
 }
 
 #root {
@@ -28,7 +142,8 @@ body {
   overflow: hidden;
 }
 
-/* Global markdown styling */
+/* ── Global markdown styling ── */
+
 .markdown-content {
   padding: 12px;
 }
@@ -70,7 +185,7 @@ body {
 }
 
 .markdown-content pre {
-  background: #f5f5f5;
+  background: var(--bg-code);
   padding: 12px;
   border-radius: 4px;
   overflow-x: auto;
@@ -78,7 +193,7 @@ body {
 }
 
 .markdown-content code {
-  background: #f5f5f5;
+  background: var(--bg-code);
   padding: 2px 6px;
   border-radius: 3px;
   font-family: monospace;
@@ -93,6 +208,6 @@ body {
 .markdown-content blockquote {
   margin: 0 0 12px 0;
   padding-left: 16px;
-  border-left: 4px solid #ddd;
-  color: #666;
+  border-left: 4px solid var(--border-primary);
+  color: var(--text-secondary);
 }

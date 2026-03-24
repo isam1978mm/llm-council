@@ -1,5 +1,6 @@
-"""3-stage LLM Council orchestration."""
+"""4-stage LLM Council orchestration."""
 
+import asyncio
 import logging
 from typing import List, Dict, Any, Tuple
 from .openrouter import query_models_parallel, query_model
@@ -205,6 +206,213 @@ def calculate_aggregate_rankings(
     return aggregate
 
 
+def _build_debate_transcript(debate_history: List[Dict[str, Any]]) -> str:
+    """Build a readable transcript of all previous debate rounds."""
+    if not debate_history:
+        return ""
+    lines = []
+    for entry in debate_history:
+        lines.append(f"--- Round {entry['round']} ---")
+        for msg in entry["messages"]:
+            role_label = "DEFENDER" if msg["role"] == "defender" else "CHALLENGER"
+            model_short = msg["model"].split("/")[-1]
+            lines.append(f"[{role_label}] {model_short}:\n{msg['content']}\n")
+    return "\n".join(lines)
+
+
+def _defender_prompt(user_query: str, defender_answer: str, transcript: str, round_num: int) -> str:
+    context = f"\n\nDebate so far:\n{transcript}\n" if transcript else ""
+    return f"""You are participating in a structured debate about the following question:
+
+Question: {user_query}
+
+Your answer (ranked #1 by the council) was:
+{defender_answer}{context}
+Round {round_num} — DEFEND your answer.
+Address any challenges raised and explain why your answer is the most accurate and comprehensive.
+Be concise and specific (2-3 paragraphs maximum)."""
+
+
+def _challenger_prompt(
+    user_query: str,
+    defender_answer: str,
+    your_answer: str,
+    transcript: str,
+    round_num: int,
+) -> str:
+    context = f"\n\nDebate so far:\n{transcript}\n" if transcript else ""
+    return f"""You are participating in a structured debate about the following question:
+
+Question: {user_query}
+
+The top-ranked answer (which you must challenge) was:
+{defender_answer}
+
+Your own answer was:
+{your_answer}{context}
+Round {round_num} — CHALLENGE the top-ranked answer.
+Identify specific flaws, gaps, or inaccuracies, and explain where your answer is superior.
+Be concise and specific (2-3 paragraphs maximum)."""
+
+
+async def stage4_run_debate(
+    user_query: str,
+    stage1_results: List[Dict[str, Any]],
+    aggregate_rankings: List[Dict[str, Any]],
+    debate_rounds: int,
+):
+    """
+    Stage 4: Debate mode. Top-ranked model defends, others challenge.
+    Async generator — yields each completed round as {"round": N, "messages": [...]}.
+    """
+    if not aggregate_rankings or debate_rounds <= 0 or len(stage1_results) < 2:
+        return
+
+    defender_model = aggregate_rankings[0]["model"]
+    defender_result = next((r for r in stage1_results if r["model"] == defender_model), None)
+    if defender_result is None:
+        return
+
+    debate_history: List[Dict[str, Any]] = []
+
+    for round_num in range(1, debate_rounds + 1):
+        transcript = _build_debate_transcript(debate_history)
+
+        tasks = []
+        model_meta = []
+        for result in stage1_results:
+            model = result["model"]
+            if model == defender_model:
+                prompt = _defender_prompt(user_query, defender_result["response"], transcript, round_num)
+                role = "defender"
+            else:
+                prompt = _challenger_prompt(
+                    user_query,
+                    defender_result["response"],
+                    result["response"],
+                    transcript,
+                    round_num,
+                )
+                role = "challenger"
+            tasks.append(query_model(model, [{"role": "user", "content": prompt}]))
+            model_meta.append((model, role))
+
+        responses = await asyncio.gather(*tasks)
+
+        round_messages = []
+        for (model, role), response in zip(model_meta, responses):
+            if response is not None:
+                round_messages.append({
+                    "model": model,
+                    "role": role,
+                    "content": response.get("content", ""),
+                })
+
+        round_data = {"round": round_num, "messages": round_messages}
+        debate_history.append(round_data)
+        yield round_data
+
+
+async def stage5_debate_verdict(
+    user_query: str,
+    stage1_results: List[Dict[str, Any]],
+    stage4_results: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """
+    Stage 5: Chairman reviews the Stage 1 answers and Stage 4 debate transcript,
+    then delivers a verdict on who won the debate and why.
+    """
+    chairman_model = load_config()["chairman_model"]
+
+    stage1_text = "\n\n".join([
+        f"Model: {result['model']}\nAnswer: {result['response']}"
+        for result in stage1_results
+    ])
+
+    transcript = _build_debate_transcript(stage4_results)
+
+    verdict_prompt = f"""You are the Chairman of an LLM Council. The council models have debated their answers to a user's question. Your task is to render a decisive verdict.
+
+Original Question: {user_query}
+
+STAGE 1 - Original Answers:
+{stage1_text}
+
+STAGE 4 - Debate Transcript:
+{transcript}
+
+Render your verdict by addressing the following:
+1. **Winner**: Which model won the debate, and state clearly why.
+2. **Strongest arguments**: What were the most compelling points made during the debate?
+3. **Weaknesses exposed**: Were any flaws or gaps in the original answers revealed by the challengers?
+4. **Final assessment**: Taking both the original answers and the debate into account, which model demonstrated the best overall reasoning?
+
+Be specific — reference actual arguments from the debate transcript. Be decisive."""
+
+    response = await query_model(chairman_model, [{"role": "user", "content": verdict_prompt}])
+
+    if response is None:
+        return {
+            "model": chairman_model,
+            "verdict": "Error: Unable to generate debate verdict."
+        }
+
+    return {
+        "model": chairman_model,
+        "verdict": response.get("content", ""),
+    }
+
+
+async def stage_tldr_summary(
+    user_query: str,
+    stage5_result: Dict[str, Any],
+    stage4_results: List[Dict[str, Any]],
+    stage3_result: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    TL;DR: Chairman produces a 3-5 bullet summary of the full council session.
+    """
+    chairman_model = load_config()["chairman_model"]
+
+    verdict_text = stage5_result.get("verdict", "") if stage5_result else ""
+    synthesis_text = stage3_result.get("response", "") if stage3_result else ""
+    transcript = _build_debate_transcript(stage4_results)
+
+    prompt = f"""You are the Chairman of an LLM Council. The council has completed a full session on a user's question. Generate a concise TL;DR summary in exactly 3-5 bullet points.
+
+Original Question: {user_query}
+
+Council Synthesis (Stage 3):
+{synthesis_text}
+
+Debate Transcript (Stage 4):
+{transcript}
+
+Debate Verdict (Stage 5):
+{verdict_text}
+
+Your TL;DR must cover:
+- What the question was about
+- The key disagreements that emerged in the debate
+- Who won the debate and the decisive reason
+- The final recommendation or takeaway
+
+Rules:
+- Return ONLY a markdown bullet list using "-" bullets. No headers, no intro sentence, no closing remarks.
+- 3 to 5 bullets maximum.
+- Each bullet should be one concise sentence."""
+
+    response = await query_model(chairman_model, [{"role": "user", "content": prompt}])
+
+    if response is None:
+        return {"model": chairman_model, "bullets": "- Unable to generate summary."}
+
+    return {
+        "model": chairman_model,
+        "bullets": response.get("content", "").strip(),
+    }
+
+
 async def generate_conversation_title(user_query: str) -> str:
     """
     Generate a short title for a conversation based on the first user message.
@@ -232,9 +440,9 @@ Title:"""
     return title
 
 
-async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
+async def run_full_council(user_query: str) -> Tuple[List, List, Dict, List, Dict]:
     """
-    Run the complete 3-stage council process.
+    Run the complete 4-stage council process.
     """
     stage1_results = await stage1_collect_responses(user_query)
 
@@ -242,7 +450,7 @@ async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
         return [], [], {
             "model": "error",
             "response": "All models failed to respond. Please try again."
-        }, {}
+        }, [], {}
 
     stage2_results, label_to_model = await stage2_collect_rankings(user_query, stage1_results)
 
@@ -264,9 +472,21 @@ async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
         stage2_results
     )
 
+    cfg = load_config()
+    debate_rounds = cfg.get("debate_rounds", 2)
+    stage4_results = []
+    async for round_data in stage4_run_debate(user_query, stage1_results, aggregate_rankings, debate_rounds):
+        stage4_results.append(round_data)
+
+    stage5_result = None
+    if stage4_results:
+        stage5_result = await stage5_debate_verdict(user_query, stage1_results, stage4_results)
+
+    tldr = await stage_tldr_summary(user_query, stage5_result, stage4_results, stage3_result)
+
     metadata = {
         "label_to_model": label_to_model,
         "aggregate_rankings": aggregate_rankings
     }
 
-    return stage1_results, stage2_results, stage3_result, metadata
+    return stage1_results, stage2_results, stage3_result, stage4_results, stage5_result, tldr, metadata

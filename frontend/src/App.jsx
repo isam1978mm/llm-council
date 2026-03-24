@@ -1,18 +1,44 @@
 import { useState, useEffect } from 'react';
+import { Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
 import Settings from './Settings';
 import Leaderboard from './Leaderboard';
+import Auth from './Auth';
 import { api } from './api';
+import { supabase } from './supabase';
 import './App.css';
 
 function App() {
+  const [user, setUser] = useState(undefined); // undefined = loading, null = logged out
   const [conversations, setConversations] = useState([]);
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [currentConversation, setCurrentConversation] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'system');
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'system') {
+      root.removeAttribute('data-theme');
+    } else {
+      root.setAttribute('data-theme', theme);
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
 
   useEffect(() => {
     loadConversations();
@@ -57,6 +83,29 @@ function App() {
 
   const handleSelectConversation = (id) => {
     setCurrentConversationId(id);
+    setSidebarOpen(false);
+  };
+
+  const handleDeleteConversation = async (id) => {
+    try {
+      await api.deleteConversation(id);
+      setConversations((prev) => prev.filter((c) => c.id !== id));
+      if (currentConversationId === id) {
+        setCurrentConversationId(null);
+        setCurrentConversation(null);
+      }
+    } catch (error) {
+      console.error('Failed to delete conversation:', error);
+    }
+  };
+
+  const handleRenameConversation = async (id, title) => {
+    try {
+      await api.renameConversation(id, title);
+      setConversations((prev) => prev.map((c) => c.id === id ? { ...c, title } : c));
+    } catch (error) {
+      console.error('Failed to rename conversation:', error);
+    }
   };
 
   const handleSendMessage = async (content) => {
@@ -75,11 +124,17 @@ function App() {
         stage1: null,
         stage2: null,
         stage3: null,
+        stage4: [],
+        stage5: null,
+        tldr: null,
         metadata: null,
         loading: {
           stage1: false,
           stage2: false,
           stage3: false,
+          stage4: false,
+          stage5: false,
+          tldr: false,
         },
       };
 
@@ -148,6 +203,72 @@ function App() {
             });
             break;
 
+          case 'stage4_start':
+            setCurrentConversation((prev) => {
+              const messages = [...prev.messages];
+              const lastMsg = messages[messages.length - 1];
+              lastMsg.loading.stage4 = true;
+              lastMsg.stage4 = [];
+              return { ...prev, messages };
+            });
+            break;
+
+          case 'stage4_round_complete':
+            setCurrentConversation((prev) => {
+              const messages = [...prev.messages];
+              const lastMsg = messages[messages.length - 1];
+              lastMsg.stage4 = [...(lastMsg.stage4 || []), event.data];
+              return { ...prev, messages };
+            });
+            break;
+
+          case 'stage4_complete':
+            setCurrentConversation((prev) => {
+              const messages = [...prev.messages];
+              const lastMsg = messages[messages.length - 1];
+              lastMsg.loading.stage4 = false;
+              return { ...prev, messages };
+            });
+            break;
+
+          case 'stage5_start':
+            setCurrentConversation((prev) => {
+              const messages = [...prev.messages];
+              const lastMsg = messages[messages.length - 1];
+              lastMsg.loading.stage5 = true;
+              return { ...prev, messages };
+            });
+            break;
+
+          case 'stage5_complete':
+            setCurrentConversation((prev) => {
+              const messages = [...prev.messages];
+              const lastMsg = messages[messages.length - 1];
+              lastMsg.stage5 = event.data;
+              lastMsg.loading.stage5 = false;
+              return { ...prev, messages };
+            });
+            break;
+
+          case 'tldr_start':
+            setCurrentConversation((prev) => {
+              const messages = [...prev.messages];
+              const lastMsg = messages[messages.length - 1];
+              lastMsg.loading.tldr = true;
+              return { ...prev, messages };
+            });
+            break;
+
+          case 'tldr_complete':
+            setCurrentConversation((prev) => {
+              const messages = [...prev.messages];
+              const lastMsg = messages[messages.length - 1];
+              lastMsg.tldr = event.data;
+              lastMsg.loading.tldr = false;
+              return { ...prev, messages };
+            });
+            break;
+
           case 'title_complete':
             loadConversations();
             break;
@@ -176,57 +297,40 @@ function App() {
     }
   };
 
+  if (user === undefined) return null; // waiting for session check
+  if (user === null) return <Auth />;
+
+  const handleLogout = () => supabase.auth.signOut();
+
   return (
     <div className="app">
-      {/* Leaderboard button */}
-      <button
-        onClick={() => setShowLeaderboard(true)}
-        style={{
-          position: 'fixed',
-          top: 16,
-          right: 70,
-          zIndex: 999,
-          background: '#2a2a3e',
-          border: '1px solid #444',
-          borderRadius: 8,
-          color: '#fff',
-          padding: '8px 14px',
-          cursor: 'pointer',
-          fontSize: 16,
-        }}
-      >
-        🏆
-      </button>
-
-      {/* Settings button */}
-      <button
-        onClick={() => setShowSettings(true)}
-        style={{
-          position: 'fixed',
-          top: 16,
-          right: 16,
-          zIndex: 999,
-          background: '#2a2a3e',
-          border: '1px solid #444',
-          borderRadius: 8,
-          color: '#fff',
-          padding: '8px 14px',
-          cursor: 'pointer',
-          fontSize: 16,
-        }}
-      >
-        ⚙️
+      {/* Hamburger button — mobile only */}
+      <button className="hamburger-btn" onClick={() => setSidebarOpen(true)}>
+        <Menu size={20} />
       </button>
 
       {/* Modals */}
       {showLeaderboard && <Leaderboard onClose={() => setShowLeaderboard(false)} />}
-      {showSettings && <Settings onClose={() => setShowSettings(false)} />}
+      {showSettings && <Settings onClose={() => setShowSettings(false)} theme={theme} onThemeChange={setTheme} />}
+
+      {/* Sidebar overlay backdrop — mobile only */}
+      {sidebarOpen && (
+        <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
+      )}
 
       <Sidebar
         conversations={conversations}
         currentConversationId={currentConversationId}
         onSelectConversation={handleSelectConversation}
-        onNewConversation={handleNewConversation}
+        onNewConversation={() => { handleNewConversation(); setSidebarOpen(false); }}
+        onDeleteConversation={handleDeleteConversation}
+        onRenameConversation={handleRenameConversation}
+        onShowSettings={() => setShowSettings(true)}
+        onShowLeaderboard={() => setShowLeaderboard(true)}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        onLogout={handleLogout}
+        userEmail={user.email}
       />
       <ChatInterface
         conversation={currentConversation}

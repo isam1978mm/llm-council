@@ -13,13 +13,14 @@ def get_client() -> Client:
     return create_client(url, key)
 
 
-def create_conversation(conversation_id: str) -> Dict[str, Any]:
-    """Create a new conversation."""
+def create_conversation(conversation_id: str, user_id: str) -> Dict[str, Any]:
+    """Create a new conversation owned by the given user."""
     conversation = {
         "id": conversation_id,
         "created_at": datetime.utcnow().isoformat(),
         "title": "New Conversation",
-        "messages": []
+        "messages": [],
+        "user_id": user_id,
     }
 
     get_client().table("conversations").insert(conversation).execute()
@@ -47,12 +48,80 @@ def save_conversation(conversation: Dict[str, Any]):
     get_client().table("conversations").upsert(conversation).execute()
 
 
-def list_conversations() -> List[Dict[str, Any]]:
-    """List all conversations (metadata only)."""
+def delete_conversation(conversation_id: str):
+    """Delete a conversation from Supabase."""
+    get_client().table("conversations").delete().eq("id", conversation_id).execute()
+
+
+def search_conversations(query: str, user_id: str) -> List[Dict[str, Any]]:
+    """Search conversations by title or message content."""
+    import logging
+    logger = logging.getLogger(__name__)
+
+    q = query.strip().lower()
+    client = get_client()
+
+    # Query 1: search by title, scoped to user
+    title_result = (
+        client
+        .table("conversations")
+        .select("id, created_at, title, messages")
+        .eq("user_id", user_id)
+        .ilike("title", f"%{q}%")
+        .order("created_at", desc=True)
+        .execute()
+    )
+    logger.info(f"SEARCH title_result count={len(title_result.data)} for q={q!r}")
+
+    # Query 2: fetch all conversations for this user, filter message content in Python
+    all_result = (
+        client
+        .table("conversations")
+        .select("id, created_at, title, messages")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    logger.info(f"SEARCH all_result count={len(all_result.data)}, first titles={[d.get('title') for d in all_result.data[:3]]}")
+    logger.info(f"SEARCH sample messages structure={all_result.data[0].get('messages', [])[:1] if all_result.data else 'NO DATA'}")
+
+    content_matches = [
+        d for d in all_result.data
+        if any(
+            q in str(msg.get("content", "")).lower()
+            for msg in d.get("messages", [])
+            if msg.get("role") == "user"
+        )
+    ]
+    logger.info(f"SEARCH content_matches count={len(content_matches)}")
+
+    # Merge, deduplicate by id, preserve created_at order
+    seen = set()
+    merged = []
+    for d in title_result.data + content_matches:
+        if d["id"] not in seen:
+            seen.add(d["id"])
+            merged.append(d)
+    merged.sort(key=lambda d: d["created_at"], reverse=True)
+
+    return [
+        {
+            "id": d["id"],
+            "created_at": d["created_at"],
+            "title": d.get("title", "New Conversation"),
+            "message_count": len(d["messages"]),
+        }
+        for d in merged
+    ]
+
+
+def list_conversations(user_id: str) -> List[Dict[str, Any]]:
+    """List all conversations for the given user."""
     result = (
         get_client()
         .table("conversations")
         .select("id, created_at, title, messages")
+        .eq("user_id", user_id)
         .order("created_at", desc=True)
         .execute()
     )
@@ -87,9 +156,12 @@ def add_assistant_message(
     conversation_id: str,
     stage1: List[Dict[str, Any]],
     stage2: List[Dict[str, Any]],
-    stage3: Dict[str, Any]
+    stage3: Dict[str, Any],
+    stage4: Optional[List[Dict[str, Any]]] = None,
+    stage5: Optional[Dict[str, Any]] = None,
+    tldr: Optional[Dict[str, Any]] = None,
 ):
-    """Add an assistant message with all 3 stages to a conversation."""
+    """Add an assistant message with all stages to a conversation."""
     conversation = get_conversation(conversation_id)
     if conversation is None:
         raise ValueError(f"Conversation {conversation_id} not found")
@@ -98,7 +170,10 @@ def add_assistant_message(
         "role": "assistant",
         "stage1": stage1,
         "stage2": stage2,
-        "stage3": stage3
+        "stage3": stage3,
+        "stage4": stage4 or [],
+        "stage5": stage5,
+        "tldr": tldr,
     })
 
     save_conversation(conversation)
@@ -150,6 +225,39 @@ def record_model_appearances(models: list, rankings: list):
                 "total_rank_points": avg_rank,
                 "last_updated": datetime.utcnow().isoformat()
             }).execute()
+
+
+def list_presets() -> List[Dict[str, Any]]:
+    """List all model presets."""
+    try:
+        result = get_client().table("model_presets").select("*").execute()
+        return result.data or []
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"list_presets error: {e}")
+        raise
+
+
+def create_preset(name: str, council_models: List[str], chairman_model: str) -> Dict[str, Any]:
+    """Create a new model preset, capping council_models at 3."""
+    result = (
+        get_client()
+        .table("model_presets")
+        .insert({
+            "name": name,
+            "models": {
+                "council_models": council_models[:5],
+                "chairman_model": chairman_model,
+            },
+        })
+        .execute()
+    )
+    return result.data[0]
+
+
+def delete_preset(preset_id: str) -> None:
+    """Delete a model preset by id."""
+    get_client().table("model_presets").delete().eq("id", preset_id).execute()
 
 
 def get_model_stats() -> list:

@@ -1,24 +1,25 @@
-.stage3 {
-  background: var(--bg-stage3);
-  border-color: var(--border-stage3);
+.stage5 {
+  margin-top: 12px;
+  background: var(--bg-stage5);
+  border-color: var(--border-stage5);
 }
 
-.final-response {
+.verdict-response {
   background: var(--bg-app);
   padding: 20px;
   border-radius: 6px;
-  border: 1px solid var(--border-stage3);
+  border: 1px solid var(--border-stage5);
 }
 
-.chairman-label {
-  color: var(--text-green);
+.stage5 .chairman-label {
+  color: #9b59b6;
   font-size: 12px;
   font-family: monospace;
   margin-bottom: 12px;
   font-weight: 600;
 }
 
-.final-text {
+.verdict-text {
   color: var(--text-primary);
   line-height: 1.7;
   font-size: 15px;
