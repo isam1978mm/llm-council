@@ -359,6 +359,7 @@ async def create_available_model(request: Request):
             supports_council=body.get("supports_council", True),
             supports_chairman=body.get("supports_chairman", True),
             is_active=body.get("is_active", True),
+            is_free=body.get("is_free"),
             sort_order=int(body.get("sort_order", 0) or 0),
             metadata=body.get("metadata") or {},
         )
@@ -380,6 +381,7 @@ async def patch_available_model(model_id: str, request: Request):
             "supports_council",
             "supports_chairman",
             "is_active",
+            "is_free",
             "sort_order",
             "metadata",
         }

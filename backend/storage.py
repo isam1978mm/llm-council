@@ -307,6 +307,7 @@ def create_available_model(
     supports_council: bool = True,
     supports_chairman: bool = True,
     is_active: bool = True,
+    is_free: Optional[bool] = None,
     sort_order: int = 0,
     metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
@@ -319,6 +320,7 @@ def create_available_model(
         "supports_council": supports_council,
         "supports_chairman": supports_chairman,
         "is_active": is_active,
+        "is_free": is_free,
         "sort_order": sort_order,
         "metadata": metadata or {},
         "updated_at": datetime.utcnow().isoformat(),
@@ -344,6 +346,7 @@ def update_available_model(model_id: str, updates: Dict[str, Any]) -> Dict[str, 
             "supports_council",
             "supports_chairman",
             "is_active",
+            "is_free",
             "sort_order",
             "metadata",
         }
@@ -365,24 +368,45 @@ def update_available_model(model_id: str, updates: Dict[str, Any]) -> Dict[str, 
 
 
 def upsert_openrouter_models(models: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Upsert OpenRouter catalog rows without touching manual entries."""
+    """Upsert OpenRouter catalog rows without overwriting existing manual choices."""
     now = datetime.utcnow().isoformat()
     payload = []
+    model_keys = [f"openrouter:{model.get('id')}" for model in models if model.get("id")]
+    existing_rows = []
+
+    if model_keys:
+        existing_result = (
+            get_client()
+            .table("available_models")
+            .select("*")
+            .in_("model_key", model_keys)
+            .execute()
+        )
+        existing_rows = existing_result.data or []
+
+    existing_by_key = {row["model_key"]: row for row in existing_rows}
 
     for model in models:
         model_id = model.get("id")
         if not model_id:
             continue
 
+        model_key = f"openrouter:{model_id}"
+        existing = existing_by_key.get(model_key)
+        is_free = _classify_openrouter_model_is_free(model)
+        remote_description = model.get("description")
+        remote_display_name = model.get("name") or model_id
+
         payload.append({
             "provider": "openrouter",
-            "model_key": f"openrouter:{model_id}",
-            "display_name": model.get("name") or model_id,
-            "description": model.get("description"),
-            "supports_council": True,
-            "supports_chairman": True,
-            "is_active": True,
-            "sort_order": 1000,
+            "model_key": model_key,
+            "display_name": existing.get("display_name") if existing else remote_display_name,
+            "description": existing.get("description") if existing else remote_description,
+            "supports_council": existing.get("supports_council", True) if existing else True,
+            "supports_chairman": existing.get("supports_chairman", True) if existing else True,
+            "is_active": existing.get("is_active", False) if existing else False,
+            "is_free": is_free,
+            "sort_order": existing.get("sort_order", 1000) if existing else 1000,
             "metadata": {
                 "openrouter_id": model_id,
                 "canonical_slug": model.get("canonical_slug"),
@@ -405,3 +429,33 @@ def upsert_openrouter_models(models: List[Dict[str, Any]]) -> List[Dict[str, Any
         .execute()
     )
     return result.data or []
+
+
+def _classify_openrouter_model_is_free(model: Dict[str, Any]) -> bool:
+    """Classify an OpenRouter catalog model as free or paid."""
+    pricing = model.get("pricing") or {}
+    numeric_values = [
+        pricing.get("prompt"),
+        pricing.get("completion"),
+        pricing.get("request"),
+        pricing.get("image"),
+        pricing.get("web_search"),
+        pricing.get("input_cache_read"),
+        pricing.get("input_cache_write"),
+    ]
+    parsed_values = [_parse_decimal_like(value) for value in numeric_values if value is not None]
+    if parsed_values:
+        return all(value == 0 for value in parsed_values)
+
+    model_id = (model.get("id") or "").lower()
+    canonical_slug = (model.get("canonical_slug") or "").lower()
+    return model_id.endswith(":free") or canonical_slug.endswith(":free")
+
+
+def _parse_decimal_like(value: Any) -> Optional[float]:
+    if value is None:
+        return None
+    try:
+        return float(str(value))
+    except (TypeError, ValueError):
+        return None

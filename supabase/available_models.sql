@@ -19,11 +19,15 @@ create table if not exists public.available_models (
   supports_council boolean not null default true,
   supports_chairman boolean not null default true,
   is_active boolean not null default true,
+  is_free boolean null,
   sort_order integer not null default 0,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.available_models
+add column if not exists is_free boolean null;
 
 drop trigger if exists set_available_models_updated_at on public.available_models;
 
@@ -40,6 +44,7 @@ insert into public.available_models (
   supports_council,
   supports_chairman,
   is_active,
+  is_free,
   sort_order,
   metadata
 ) values
@@ -51,6 +56,7 @@ insert into public.available_models (
     true,
     true,
     true,
+    false,
     10,
     '{}'::jsonb
   ),
@@ -62,6 +68,7 @@ insert into public.available_models (
     true,
     true,
     true,
+    false,
     20,
     '{}'::jsonb
   ),
@@ -73,6 +80,7 @@ insert into public.available_models (
     true,
     true,
     true,
+    false,
     30,
     '{}'::jsonb
   )
@@ -84,6 +92,15 @@ set
   supports_council = excluded.supports_council,
   supports_chairman = excluded.supports_chairman,
   is_active = excluded.is_active,
+  is_free = excluded.is_free,
   sort_order = excluded.sort_order,
   metadata = excluded.metadata,
   updated_at = now();
+
+update public.available_models
+set is_free = case
+  when provider = 'openrouter' and lower(model_key) like '%:free' then true
+  when provider = 'codex' then false
+  else is_free
+end
+where is_free is null;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Database, Plus, RefreshCw } from 'lucide-react';
 import { api } from './api';
 
@@ -7,6 +7,9 @@ export default function Models({ onClose }) {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState('');
+  const [priceFilter, setPriceFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [providerFilter, setProviderFilter] = useState('all');
   const [manualModel, setManualModel] = useState({
     provider: 'codex',
     model_key: 'codex:local',
@@ -15,6 +18,7 @@ export default function Models({ onClose }) {
     supports_council: true,
     supports_chairman: true,
     is_active: true,
+    is_free: false,
     sort_order: 0,
   });
 
@@ -79,6 +83,31 @@ export default function Models({ onClose }) {
     }
   };
 
+  const providerOptions = useMemo(() => {
+    return ['all', ...new Set(models.map((model) => model.provider).filter(Boolean))];
+  }, [models]);
+
+  const filteredModels = useMemo(() => {
+    return models.filter((model) => {
+      if (priceFilter === 'free' && model.is_free !== true) {
+        return false;
+      }
+      if (priceFilter === 'paid' && model.is_free === true) {
+        return false;
+      }
+      if (statusFilter === 'active' && model.is_active !== true) {
+        return false;
+      }
+      if (statusFilter === 'inactive' && model.is_active !== false) {
+        return false;
+      }
+      if (providerFilter !== 'all' && model.provider !== providerFilter) {
+        return false;
+      }
+      return true;
+    });
+  }, [models, priceFilter, statusFilter, providerFilter]);
+
   return (
     <div style={overlay}>
       <div style={modal}>
@@ -106,6 +135,7 @@ export default function Models({ onClose }) {
             <label style={checkboxLabel}><input type="checkbox" checked={manualModel.supports_council} onChange={(e) => setManualModel((prev) => ({ ...prev, supports_council: e.target.checked }))} /> Council</label>
             <label style={checkboxLabel}><input type="checkbox" checked={manualModel.supports_chairman} onChange={(e) => setManualModel((prev) => ({ ...prev, supports_chairman: e.target.checked }))} /> Chairman</label>
             <label style={checkboxLabel}><input type="checkbox" checked={manualModel.is_active} onChange={(e) => setManualModel((prev) => ({ ...prev, is_active: e.target.checked }))} /> Active</label>
+            <label style={checkboxLabel}><input type="checkbox" checked={manualModel.is_free} onChange={(e) => setManualModel((prev) => ({ ...prev, is_free: e.target.checked }))} /> Free</label>
             <button onClick={handleCreateManual} style={secondaryBtn}>
               <Plus size={14} /> Add Model
             </button>
@@ -116,9 +146,28 @@ export default function Models({ onClose }) {
 
         <div style={section}>
           <h3 style={sectionHeader}>Catalog</h3>
+          <div style={filterRow}>
+            <select value={priceFilter} onChange={(e) => setPriceFilter(e.target.value)} style={select}>
+              <option value="all">All</option>
+              <option value="free">Free</option>
+              <option value="paid">Paid</option>
+            </select>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={select}>
+              <option value="all">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+            <select value={providerFilter} onChange={(e) => setProviderFilter(e.target.value)} style={select}>
+              {providerOptions.map((provider) => (
+                <option key={provider} value={provider}>
+                  {provider === 'all' ? 'All Providers' : provider}
+                </option>
+              ))}
+            </select>
+          </div>
           {loading ? (
             <p style={metaText}>Loading models...</p>
-          ) : models.length === 0 ? (
+          ) : filteredModels.length === 0 ? (
             <p style={metaText}>No models found.</p>
           ) : (
             <div style={tableWrap}>
@@ -127,6 +176,7 @@ export default function Models({ onClose }) {
                   <tr>
                     <th style={th}>Model</th>
                     <th style={th}>Provider</th>
+                    <th style={th}>Price</th>
                     <th style={th}>Council</th>
                     <th style={th}>Chairman</th>
                     <th style={th}>Active</th>
@@ -134,13 +184,14 @@ export default function Models({ onClose }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {models.map((model) => (
+                  {filteredModels.map((model) => (
                     <tr key={model.id} style={tr}>
                       <td style={td}>
                         <div style={modelName}>{model.display_name}</div>
                         <div style={modelMeta}>{model.model_key}</div>
                       </td>
                       <td style={td}>{model.provider}</td>
+                      <td style={td}>{model.is_free ? 'Free' : 'Paid'}</td>
                       <td style={tdCenter}>
                         <input type="checkbox" checked={model.supports_council} onChange={(e) => handleToggle(model.id, 'supports_council', e.target.checked)} />
                       </td>
@@ -177,7 +228,9 @@ const primaryBtn = { display: 'inline-flex', alignItems: 'center', gap: 6, backg
 const secondaryBtn = { display: 'inline-flex', alignItems: 'center', gap: 6, background: '#27ae60', border: 'none', borderRadius: 6, color: '#fff', padding: '8px 14px', cursor: 'pointer' };
 const formGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginBottom: 10 };
 const input = { background: 'var(--bg-tertiary)', border: '1px solid var(--border-primary)', borderRadius: 6, padding: '8px 10px', color: 'var(--text-primary)' };
+const select = { ...input, minWidth: 140 };
 const toggleRow = { display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' };
+const filterRow = { display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 };
 const checkboxLabel = { display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 };
 const errorText = { color: '#e05252', fontSize: 13 };
 const metaText = { color: 'var(--text-meta)', fontSize: 13 };
