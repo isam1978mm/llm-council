@@ -1,6 +1,9 @@
+/* global __APP_VERSION__ */
 import { useState, useEffect } from "react";
 import { X, Sun, Moon, Monitor, Settings as SettingsIcon, BookmarkPlus, Trash2, Download } from "lucide-react";
 import { api } from "./api";
+
+const appVersion = __APP_VERSION__;
 
 export default function Settings({ onClose, theme, onThemeChange }) {
   const [models, setModels] = useState([]);
@@ -84,7 +87,7 @@ export default function Settings({ onClose, theme, onThemeChange }) {
         {models.map((m) => (
           <div key={m} style={row}>
             <span style={{ color: "var(--text-primary)", flex: 1, fontSize: 13 }}>{m}</span>
-            <button onClick={() => removeModel(m)} style={removeBtn}>✕</button>
+            <button onClick={() => removeModel(m)} style={removeBtn}>x</button>
           </div>
         ))}
         {models.length < 5 && (
@@ -132,7 +135,7 @@ export default function Settings({ onClose, theme, onThemeChange }) {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{p.name}</div>
               <div style={{ fontSize: 11, color: "var(--text-meta)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {p.models.council_models.join(", ")} · {p.models.chairman_model}
+                {p.models.council_models.join(", ")} | {p.models.chairman_model}
               </div>
             </div>
             <button onClick={() => loadPreset(p)} style={loadBtn} title="Load preset">
@@ -147,7 +150,7 @@ export default function Settings({ onClose, theme, onThemeChange }) {
           <input
             value={newPresetName}
             onChange={(e) => setNewPresetName(e.target.value)}
-            placeholder="Preset name…"
+            placeholder="Preset name..."
             style={input}
             onKeyDown={(e) => e.key === "Enter" && saveAsPreset()}
           />
@@ -157,16 +160,18 @@ export default function Settings({ onClose, theme, onThemeChange }) {
             disabled={presetSaving || !newPresetName.trim() || models.length === 0}
             title="Save current models as preset"
           >
-            <BookmarkPlus size={14} /> {presetSaving ? "Saving…" : "Save"}
+            <BookmarkPlus size={14} /> {presetSaving ? "Saving..." : "Save"}
           </button>
         </div>
 
         <div style={{ marginTop: 20, display: "flex", gap: 10 }}>
           <button onClick={save} style={saveBtn}>
-            {saved ? "✅ Saved!" : "Save"}
+            {saved ? "Saved!" : "Save"}
           </button>
           <button onClick={onClose} style={cancelBtn}>Cancel</button>
         </div>
+
+        <div style={versionText}>Version {appVersion}</div>
       </div>
     </div>
   );
@@ -186,3 +191,4 @@ const saveBtn = { background:"#27ae60", border:"none", borderRadius:6, color:"#f
 const cancelBtn = { background:"var(--bg-hover)", border:"1px solid var(--border-primary)", borderRadius:6, color:"var(--text-primary)", padding:"8px 20px", cursor:"pointer" };
 const presetRow = { display:"flex", alignItems:"center", gap:8, marginBottom:8, padding:"8px 10px", background:"var(--bg-tertiary)", borderRadius:6, border:"1px solid var(--border-primary)" };
 const loadBtn = { display:"flex", alignItems:"center", gap:4, background:"#2980b9", border:"none", borderRadius:6, color:"#fff", padding:"4px 10px", cursor:"pointer", fontSize:12, flexShrink:0 };
+const versionText = { marginTop: 14, color: "var(--text-meta)", fontSize: 12, textAlign: "right" };
