@@ -1,3 +1,4 @@
+/* eslint-env node */
 import { execSync } from 'node:child_process'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
@@ -7,7 +8,7 @@ let gitCommit = 'dev'
 try {
   gitCommit = execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim()
 } catch {
-  gitCommit = process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) || 'dev'
+  gitCommit = globalThis.process?.env?.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) || 'dev'
 }
 const appVersion = `${pkg.version} (${gitCommit})`
 

@@ -238,6 +238,8 @@ function BrowserApp() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'system');
   const activeStreamControllerRef = useRef(null);
+  const authResolved = user !== undefined;
+  const authUserId = user?.id ?? null;
 
   const loadConversations = async () => {
     try {
@@ -275,6 +277,23 @@ function BrowserApp() {
   }, []);
 
   useEffect(() => {
+    if (!authResolved) {
+      return undefined;
+    }
+
+    activeStreamControllerRef.current?.abort();
+    activeStreamControllerRef.current = null;
+    queueMicrotask(() => {
+      setIsLoading(false);
+      setConversations([]);
+      setCurrentConversationId(null);
+      setCurrentConversation(null);
+    });
+
+    if (!authUserId) {
+      return undefined;
+    }
+
     let cancelled = false;
 
     const run = async () => {
@@ -293,10 +312,10 @@ function BrowserApp() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [authResolved, authUserId]);
 
   useEffect(() => {
-    if (!currentConversationId) {
+    if (!authUserId || !currentConversationId) {
       return undefined;
     }
 
@@ -318,7 +337,7 @@ function BrowserApp() {
     return () => {
       cancelled = true;
     };
-  }, [currentConversationId]);
+  }, [currentConversationId, authUserId]);
 
   const handleNewConversation = async () => {
     try {
