@@ -11,6 +11,7 @@ import './ChatInterface.css';
 export default function ChatInterface({
   conversation,
   onSendMessage,
+  onStopMessage = () => {},
   isLoading,
   mode = 'council',
   statusText = '',
@@ -206,11 +207,12 @@ export default function ChatInterface({
             rows={3}
           />
           <button
-            type="submit"
+            type={isLoading && mode !== 'codex' ? 'button' : 'submit'}
             className="send-button"
-            disabled={!input.trim() || isLoading || (mode === 'codex' && !canStopCodex)}
+            onClick={isLoading && mode !== 'codex' ? onStopMessage : undefined}
+            disabled={isLoading ? false : (!input.trim() || (mode === 'codex' && !canStopCodex))}
           >
-            Send
+            {isLoading && mode !== 'codex' ? 'Stop' : 'Send'}
           </button>
         </form>
       )}

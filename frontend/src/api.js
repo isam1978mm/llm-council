@@ -47,13 +47,14 @@ export const api = {
     if (!response.ok) throw new Error('Failed to send message');
     return response.json();
   },
-  async sendMessageStream(conversationId, content, onEvent) {
+  async sendMessageStream(conversationId, content, onEvent, signal) {
     const response = await fetch(
       `${API_BASE}/api/conversations/${conversationId}/message/stream`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...await authHeaders() },
         body: JSON.stringify({ content }),
+        signal,
       }
     );
     if (!response.ok) throw new Error('Failed to send message');

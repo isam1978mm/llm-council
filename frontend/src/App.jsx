@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
@@ -235,6 +235,7 @@ function BrowserApp() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'system');
+  const activeStreamControllerRef = useRef(null);
 
   const loadConversations = async () => {
     try {
@@ -266,6 +267,10 @@ function BrowserApp() {
     }
     localStorage.setItem('theme', theme);
   }, [theme]);
+
+  useEffect(() => () => {
+    activeStreamControllerRef.current?.abort();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -356,6 +361,8 @@ function BrowserApp() {
   const handleSendMessage = async (content) => {
     if (!currentConversationId) return;
 
+    const abortController = new AbortController();
+    activeStreamControllerRef.current = abortController;
     setIsLoading(true);
     try {
       const userMessage = { role: 'user', content };
@@ -520,26 +527,69 @@ function BrowserApp() {
 
           case 'complete':
             loadConversations();
+            activeStreamControllerRef.current = null;
             setIsLoading(false);
             break;
 
           case 'error':
             console.error('Stream error:', event.message);
+            activeStreamControllerRef.current = null;
             setIsLoading(false);
             break;
 
           default:
             console.log('Unknown event type:', eventType);
         }
-      });
+      }, abortController.signal);
     } catch (error) {
+      if (error.name === 'AbortError') {
+        clearAssistantLoadingState();
+        activeStreamControllerRef.current = null;
+        setIsLoading(false);
+        return;
+      }
+
       console.error('Failed to send message:', error);
+      activeStreamControllerRef.current = null;
       setCurrentConversation((prev) => ({
         ...prev,
         messages: prev.messages.slice(0, -2),
       }));
       setIsLoading(false);
     }
+  };
+
+  const handleStopMessage = () => {
+    activeStreamControllerRef.current?.abort();
+    activeStreamControllerRef.current = null;
+    clearAssistantLoadingState();
+    setIsLoading(false);
+  };
+
+  const clearAssistantLoadingState = () => {
+    setCurrentConversation((prev) => {
+      if (!prev?.messages?.length) {
+        return prev;
+      }
+
+      const messages = [...prev.messages];
+      const lastIndex = messages.length - 1;
+      const lastMessage = messages[lastIndex];
+
+      if (lastMessage?.role !== 'assistant' || !lastMessage.loading) {
+        return prev;
+      }
+
+      messages[lastIndex] = {
+        ...lastMessage,
+        loading: Object.keys(lastMessage.loading).reduce((acc, key) => {
+          acc[key] = false;
+          return acc;
+        }, {}),
+      };
+
+      return { ...prev, messages };
+    });
   };
 
   if (user === undefined) return null;
@@ -577,6 +627,7 @@ function BrowserApp() {
       <ChatInterface
         conversation={currentConversation}
         onSendMessage={handleSendMessage}
+        onStopMessage={handleStopMessage}
         isLoading={isLoading}
       />
     </div>
