@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from typing import List, Dict, Any, Tuple
-from .openrouter import query_models_parallel, query_model
+from .provider_router import query_models_parallel, query_model
 from .config import load_config
 from . import storage
 
@@ -426,7 +426,7 @@ Title:"""
 
     messages = [{"role": "user", "content": title_prompt}]
 
-    response = await query_model("google/gemini-2.5-flash", messages, timeout=30.0)
+    response = await query_model("openrouter:google/gemini-2.5-flash", messages, timeout=30.0)
 
     if response is None:
         return "New Conversation"

@@ -278,8 +278,8 @@ async def get_config():
 @app.post("/api/config")
 async def update_config(data: dict):
     """Update council models configuration."""
-    council_models = data.get("council_models", app_config.DEFAULT_COUNCIL_MODELS)
-    chairman_model = data.get("chairman_model", app_config.DEFAULT_CHAIRMAN_MODEL)
+    council_models = app_config.normalize_model_specs(data.get("council_models", app_config.DEFAULT_COUNCIL_MODELS))
+    chairman_model = app_config.normalize_model_spec(data.get("chairman_model", app_config.DEFAULT_CHAIRMAN_MODEL))
     debate_rounds_cap = data.get("debate_rounds_cap", app_config.DEBATE_ROUNDS_CAP)
     debate_rounds = max(1, min(int(data.get("debate_rounds", app_config.DEFAULT_DEBATE_ROUNDS)), int(debate_rounds_cap)))
 
@@ -309,8 +309,8 @@ async def create_preset(data: dict):
     name = data.get("name", "").strip()
     if not name:
         raise HTTPException(status_code=400, detail="Preset name cannot be empty")
-    council_models = data.get("council_models", [])[:5]
-    chairman_model = data.get("chairman_model", "").strip()
+    council_models = app_config.normalize_model_specs(data.get("council_models", [])[:5])
+    chairman_model = app_config.normalize_model_spec(data.get("chairman_model", "").strip())
     if not council_models:
         raise HTTPException(status_code=400, detail="At least one council model is required")
     return storage.create_preset(name, council_models, chairman_model)

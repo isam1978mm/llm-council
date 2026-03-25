@@ -1,8 +1,11 @@
-"""OpenRouter API client for making LLM requests."""
+"""OpenRouter provider adapter."""
 
 import httpx
+import logging
 from typing import List, Dict, Any, Optional
 from .config import OPENROUTER_API_KEY, OPENROUTER_API_URL
+
+logger = logging.getLogger(__name__)
 
 
 async def query_model(
@@ -11,10 +14,10 @@ async def query_model(
     timeout: float = 120.0
 ) -> Optional[Dict[str, Any]]:
     """
-    Query a single model via OpenRouter API.
+    Query a single OpenRouter model.
 
     Args:
-        model: OpenRouter model identifier (e.g., "openai/gpt-4o")
+        model: OpenRouter model identifier without provider prefix
         messages: List of message dicts with 'role' and 'content'
         timeout: Request timeout in seconds
 
@@ -49,7 +52,7 @@ async def query_model(
             }
 
     except Exception as e:
-        print(f"Error querying model {model}: {e}")
+        logger.error("Error querying OpenRouter model %s: %s", model, e)
         return None
 
 
