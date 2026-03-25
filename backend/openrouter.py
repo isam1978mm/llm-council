@@ -6,6 +6,7 @@ from typing import List, Dict, Any, Optional
 from .config import OPENROUTER_API_KEY, OPENROUTER_API_URL
 
 logger = logging.getLogger(__name__)
+OPENROUTER_MODELS_API_URL = "https://openrouter.ai/api/v1/models"
 
 
 async def query_model(
@@ -80,3 +81,21 @@ async def query_models_parallel(
 
     # Map models to their responses
     return {model: response for model, response in zip(models, responses)}
+
+
+async def list_models(timeout: float = 30.0) -> List[Dict[str, Any]]:
+    """Fetch the OpenRouter model catalog."""
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.get(OPENROUTER_MODELS_API_URL, headers=headers)
+            response.raise_for_status()
+            data = response.json()
+            return data.get("data", [])
+    except Exception as e:
+        logger.error("Error listing OpenRouter models: %s", e)
+        raise

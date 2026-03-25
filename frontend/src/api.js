@@ -143,9 +143,34 @@ export const api = {
     if (!response.ok) throw new Error('Failed to get stats');
     return response.json();
   },
-  async listAvailableModels() {
-    const response = await fetch(`${API_BASE}/api/models`);
+  async listAvailableModels(activeOnly = false) {
+    const response = await fetch(`${API_BASE}/api/models?active_only=${activeOnly ? 'true' : 'false'}`);
     if (!response.ok) throw new Error('Failed to load available models');
+    return response.json();
+  },
+  async createAvailableModel(model) {
+    const response = await fetch(`${API_BASE}/api/models`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(model),
+    });
+    if (!response.ok) throw new Error('Failed to create model');
+    return response.json();
+  },
+  async updateAvailableModel(modelId, updates) {
+    const response = await fetch(`${API_BASE}/api/models/${modelId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    if (!response.ok) throw new Error('Failed to update model');
+    return response.json();
+  },
+  async syncOpenRouterModels() {
+    const response = await fetch(`${API_BASE}/api/models/sync-openrouter`, {
+      method: 'POST',
+    });
+    if (!response.ok) throw new Error('Failed to sync OpenRouter models');
     return response.json();
   },
 };

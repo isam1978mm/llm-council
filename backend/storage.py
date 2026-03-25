@@ -284,3 +284,124 @@ def list_available_models() -> List[Dict[str, Any]]:
         .execute()
     )
     return result.data or []
+
+
+def list_all_available_models() -> List[Dict[str, Any]]:
+    """List all models from the Supabase-backed model catalog."""
+    result = (
+        get_client()
+        .table("available_models")
+        .select("*")
+        .order("sort_order")
+        .order("display_name")
+        .execute()
+    )
+    return result.data or []
+
+
+def create_available_model(
+    provider: str,
+    model_key: str,
+    display_name: str,
+    description: Optional[str] = None,
+    supports_council: bool = True,
+    supports_chairman: bool = True,
+    is_active: bool = True,
+    sort_order: int = 0,
+    metadata: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Create or update one model catalog row by model_key."""
+    payload = {
+        "provider": provider,
+        "model_key": model_key,
+        "display_name": display_name,
+        "description": description,
+        "supports_council": supports_council,
+        "supports_chairman": supports_chairman,
+        "is_active": is_active,
+        "sort_order": sort_order,
+        "metadata": metadata or {},
+        "updated_at": datetime.utcnow().isoformat(),
+    }
+
+    result = (
+        get_client()
+        .table("available_models")
+        .upsert(payload, on_conflict="model_key")
+        .execute()
+    )
+    return result.data[0]
+
+
+def update_available_model(model_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
+    """Update one model catalog row by id."""
+    payload = {
+        key: value
+        for key, value in updates.items()
+        if key in {
+            "display_name",
+            "description",
+            "supports_council",
+            "supports_chairman",
+            "is_active",
+            "sort_order",
+            "metadata",
+        }
+    }
+    payload["updated_at"] = datetime.utcnow().isoformat()
+
+    result = (
+        get_client()
+        .table("available_models")
+        .update(payload)
+        .eq("id", model_id)
+        .execute()
+    )
+
+    if not result.data:
+        raise ValueError(f"Model {model_id} not found")
+
+    return result.data[0]
+
+
+def upsert_openrouter_models(models: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Upsert OpenRouter catalog rows without touching manual entries."""
+    now = datetime.utcnow().isoformat()
+    payload = []
+
+    for model in models:
+        model_id = model.get("id")
+        if not model_id:
+            continue
+
+        payload.append({
+            "provider": "openrouter",
+            "model_key": f"openrouter:{model_id}",
+            "display_name": model.get("name") or model_id,
+            "description": model.get("description"),
+            "supports_council": True,
+            "supports_chairman": True,
+            "is_active": True,
+            "sort_order": 1000,
+            "metadata": {
+                "openrouter_id": model_id,
+                "canonical_slug": model.get("canonical_slug"),
+                "context_length": model.get("context_length"),
+                "architecture": model.get("architecture"),
+                "pricing": model.get("pricing"),
+                "top_provider": model.get("top_provider"),
+                "supported_parameters": model.get("supported_parameters"),
+            },
+            "updated_at": now,
+        })
+
+    if not payload:
+        return []
+
+    result = (
+        get_client()
+        .table("available_models")
+        .upsert(payload, on_conflict="model_key")
+        .execute()
+    )
+    return result.data or []

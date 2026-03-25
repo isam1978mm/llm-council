@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
 import Settings from './Settings';
 import Leaderboard from './Leaderboard';
+import Models from './Models';
 import Auth from './Auth';
 import { api } from './api';
 import { supabase } from './supabase';
@@ -233,6 +234,7 @@ function BrowserApp() {
   const [isLoading, setIsLoading] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showModels, setShowModels] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'system');
   const activeStreamControllerRef = useRef(null);
@@ -605,6 +607,7 @@ function BrowserApp() {
 
       {showLeaderboard && <Leaderboard onClose={() => setShowLeaderboard(false)} />}
       {showSettings && <Settings onClose={() => setShowSettings(false)} theme={theme} onThemeChange={setTheme} />}
+      {showModels && <Models onClose={() => setShowModels(false)} />}
 
       {sidebarOpen && (
         <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
@@ -619,6 +622,7 @@ function BrowserApp() {
         onRenameConversation={handleRenameConversation}
         onShowSettings={() => setShowSettings(true)}
         onShowLeaderboard={() => setShowLeaderboard(true)}
+        onShowModels={() => setShowModels(true)}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onLogout={handleLogout}

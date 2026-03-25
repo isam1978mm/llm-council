@@ -29,7 +29,7 @@ export default function Settings({ onClose, theme, onThemeChange }) {
       setDebateRoundsCap(cfg.debate_rounds_cap ?? 5);
     });
     api.listPresets().then(setPresets).catch((e) => setPresetsError(e.message));
-    api.listAvailableModels().then(setAvailableModels).catch((e) => setAvailableModelsError(e.message));
+    api.listAvailableModels(true).then(setAvailableModels).catch((e) => setAvailableModelsError(e.message));
   }, []);
 
   const councilModelOptions = availableModels.filter(

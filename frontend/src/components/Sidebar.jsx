@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import {
   X, PanelLeftClose, PanelLeftOpen, SquarePen, Search,
   MessageSquare, MoreHorizontal, Pencil, Trash2,
-  Trophy, Settings, LogOut,
+  Trophy, Settings, LogOut, Database,
 } from 'lucide-react';
 import { api } from '../api';
 import './Sidebar.css';
@@ -16,6 +16,7 @@ export default function Sidebar({
   onRenameConversation,
   onShowSettings,
   onShowLeaderboard,
+  onShowModels,
   isOpen,
   onClose,
   onLogout,
@@ -23,6 +24,7 @@ export default function Sidebar({
   searchEnabled = true,
   showLeaderboard = true,
   showSettings = true,
+  showModels = true,
   showLogout = true,
   appTitle = 'LLM Council',
 }) {
@@ -252,6 +254,12 @@ export default function Sidebar({
           <button className="sidebar-footer-btn" onClick={onShowSettings} title="Settings">
             <Settings size={16} className="footer-btn-icon" />
             <span className="sidebar-text"> Settings</span>
+          </button>
+        )}
+        {showModels && (
+          <button className="sidebar-footer-btn" onClick={onShowModels} title="Models">
+            <Database size={16} className="footer-btn-icon" />
+            <span className="sidebar-text"> Models</span>
           </button>
         )}
         {userEmail && (

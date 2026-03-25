@@ -3,7 +3,7 @@ import logging
 import base64
 import json as _json
 from . import config as app_config
-from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi import FastAPI, HTTPException, Header, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -12,7 +12,7 @@ import uuid
 import json
 import asyncio
 
-from . import storage
+from . import storage, openrouter
 from .council import run_full_council, generate_conversation_title, stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final, calculate_aggregate_rankings, stage4_run_debate, stage5_debate_verdict, stage_tldr_summary
 
 logging.basicConfig(level=logging.INFO)
@@ -331,13 +331,85 @@ async def get_stats():
 
 
 @app.get("/api/models")
-async def list_available_models():
-    """List available active models from the catalog."""
+async def list_available_models(active_only: bool = False):
+    """List models from the catalog."""
     try:
-        return storage.list_available_models()
+        return storage.list_available_models() if active_only else storage.list_all_available_models()
     except Exception as e:
         logger.error(f"Failed to list available models: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to load models: {str(e)}")
+
+
+@app.post("/api/models")
+async def create_available_model(request: Request):
+    """Create or upsert one manual model catalog row."""
+    try:
+        body = await request.json()
+        provider = (body.get("provider") or "").strip()
+        model_key = (body.get("model_key") or "").strip()
+        display_name = (body.get("display_name") or "").strip()
+        if not provider or not model_key or not display_name:
+            raise HTTPException(status_code=400, detail="provider, model_key, and display_name are required")
+
+        return storage.create_available_model(
+            provider=provider,
+            model_key=model_key,
+            display_name=display_name,
+            description=body.get("description"),
+            supports_council=body.get("supports_council", True),
+            supports_chairman=body.get("supports_chairman", True),
+            is_active=body.get("is_active", True),
+            sort_order=int(body.get("sort_order", 0) or 0),
+            metadata=body.get("metadata") or {},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to create available model: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create model: {str(e)}")
+
+
+@app.patch("/api/models/{model_id}")
+async def patch_available_model(model_id: str, request: Request):
+    """Update one model catalog row."""
+    try:
+        body = await request.json()
+        allowed_fields = {
+            "display_name",
+            "description",
+            "supports_council",
+            "supports_chairman",
+            "is_active",
+            "sort_order",
+            "metadata",
+        }
+        updates = {key: value for key, value in body.items() if key in allowed_fields}
+        if not updates:
+            raise HTTPException(status_code=400, detail="No valid fields provided")
+        return storage.update_available_model(model_id, updates)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update model {model_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update model: {str(e)}")
+
+
+@app.post("/api/models/sync-openrouter")
+async def sync_openrouter_models():
+    """Fetch the OpenRouter catalog and upsert it into available_models."""
+    try:
+        models = await openrouter.list_models()
+        synced = storage.upsert_openrouter_models(models)
+        return {
+            "status": "ok",
+            "count": len(synced),
+            "models": synced,
+        }
+    except Exception as e:
+        logger.error(f"Failed to sync OpenRouter models: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to sync OpenRouter models: {str(e)}")
 
 
 if __name__ == "__main__":
