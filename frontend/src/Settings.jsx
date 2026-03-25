@@ -32,26 +32,16 @@ export default function Settings({ onClose, theme, onThemeChange }) {
     api.listAvailableModels().then(setAvailableModels).catch((e) => setAvailableModelsError(e.message));
   }, []);
 
-  useEffect(() => {
-    if (!selectedCouncilModel) {
-      const firstAvailable = availableModels
-        .filter((model) => model.supports_council)
-        .find((model) => !models.includes(model.model_key));
-      if (firstAvailable) {
-        setSelectedCouncilModel(firstAvailable.model_key);
-      }
-    }
-  }, [availableModels, models, selectedCouncilModel]);
-
-  const councilModelOptions = availableModels.filter((model) => model.supports_council);
+  const councilModelOptions = availableModels.filter(
+    (model) => model.supports_council && !models.includes(model.model_key)
+  );
   const chairmanModelOptions = availableModels.filter((model) => model.supports_chairman);
 
   const addModel = () => {
     const modelKey = selectedCouncilModel.trim();
     if (modelKey && !models.includes(modelKey) && models.length < 5) {
       setModels([...models, modelKey]);
-      const nextAvailable = councilModelOptions.find((model) => model.model_key !== modelKey && !models.includes(model.model_key));
-      setSelectedCouncilModel(nextAvailable?.model_key ?? "");
+      setSelectedCouncilModel("");
     }
   };
 
@@ -127,7 +117,7 @@ export default function Settings({ onClose, theme, onThemeChange }) {
               value={selectedCouncilModel}
               onChange={(e) => setSelectedCouncilModel(e.target.value)}
               list="council-model-options"
-              placeholder="Select, type, or paste a council model..."
+              placeholder="Select a model..."
               style={input}
             />
             <datalist id="council-model-options">
@@ -161,7 +151,7 @@ export default function Settings({ onClose, theme, onThemeChange }) {
           value={chairman}
           onChange={(e) => setChairman(e.target.value)}
           list="chairman-model-options"
-          placeholder="Select, type, or paste a chairman model..."
+          placeholder="Select a model..."
           style={{ ...input, width: "100%" }}
         />
         <datalist id="chairman-model-options">
