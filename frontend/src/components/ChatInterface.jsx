@@ -195,27 +195,25 @@ export default function ChatInterface({
         <div ref={messagesEndRef} />
       </div>
 
-      {(conversation.messages.length === 0 || mode === 'codex') && (
-        <form className="input-form" onSubmit={handleSubmit}>
-          <textarea
-            className="message-input"
-            placeholder={mode === 'codex' ? 'Send a prompt to Codex... (Shift+Enter for new line, Enter to send)' : 'Ask your question... (Shift+Enter for new line, Enter to send)'}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={isLoading || (mode === 'codex' && !canStopCodex)}
-            rows={3}
-          />
-          <button
-            type={isLoading && mode !== 'codex' ? 'button' : 'submit'}
-            className="send-button"
-            onClick={isLoading && mode !== 'codex' ? onStopMessage : undefined}
-            disabled={isLoading ? false : (!input.trim() || (mode === 'codex' && !canStopCodex))}
-          >
-            {isLoading && mode !== 'codex' ? 'Stop' : 'Send'}
-          </button>
-        </form>
-      )}
+      <form className="input-form" onSubmit={handleSubmit}>
+        <textarea
+          className="message-input"
+          placeholder={mode === 'codex' ? 'Send a prompt to Codex... (Shift+Enter for new line, Enter to send)' : 'Ask your question... (Shift+Enter for new line, Enter to send)'}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={isLoading || (mode === 'codex' && !canStopCodex)}
+          rows={3}
+        />
+        <button
+          type={isLoading && mode !== 'codex' ? 'button' : 'submit'}
+          className="send-button"
+          onClick={isLoading && mode !== 'codex' ? onStopMessage : undefined}
+          disabled={isLoading ? false : (!input.trim() || (mode === 'codex' && !canStopCodex))}
+        >
+          {isLoading && mode !== 'codex' ? 'Stop' : 'Send'}
+        </button>
+      </form>
     </div>
   );
 }
