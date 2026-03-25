@@ -47,10 +47,11 @@ export default function Settings({ onClose, theme, onThemeChange }) {
   const chairmanModelOptions = availableModels.filter((model) => model.supports_chairman);
 
   const addModel = () => {
-    if (selectedCouncilModel && !models.includes(selectedCouncilModel) && models.length < 5) {
-      setModels([...models, selectedCouncilModel]);
-      const nextAvailable = councilModelOptions.find((model) => model.model_key !== selectedCouncilModel && !models.includes(model.model_key));
-      setSelectedCouncilModel(nextAvailable?.model_key ?? selectedCouncilModel);
+    const modelKey = selectedCouncilModel.trim();
+    if (modelKey && !models.includes(modelKey) && models.length < 5) {
+      setModels([...models, modelKey]);
+      const nextAvailable = councilModelOptions.find((model) => model.model_key !== modelKey && !models.includes(model.model_key));
+      setSelectedCouncilModel(nextAvailable?.model_key ?? "");
     }
   };
 
@@ -122,23 +123,21 @@ export default function Settings({ onClose, theme, onThemeChange }) {
         ))}
         {models.length < 5 && (
           <div style={row}>
-            <select
+            <input
               value={selectedCouncilModel}
               onChange={(e) => setSelectedCouncilModel(e.target.value)}
+              list="council-model-options"
+              placeholder="Select, type, or paste a council model..."
               style={input}
-            >
-              <option value="">Select a council model...</option>
+            />
+            <datalist id="council-model-options">
               {councilModelOptions.map((model) => (
-                <option
-                  key={model.model_key}
-                  value={model.model_key}
-                  disabled={models.includes(model.model_key)}
-                >
+                <option key={model.model_key} value={model.model_key}>
                   {model.display_name}
                 </option>
               ))}
-            </select>
-            <button onClick={addModel} style={addBtn} disabled={!selectedCouncilModel || models.includes(selectedCouncilModel)}>
+            </datalist>
+            <button onClick={addModel} style={addBtn} disabled={!selectedCouncilModel.trim() || models.includes(selectedCouncilModel.trim())}>
               + Add
             </button>
           </div>
@@ -158,21 +157,20 @@ export default function Settings({ onClose, theme, onThemeChange }) {
         </div>
 
         <h3 style={sectionHeader}>Chairman Model</h3>
-        <select
+        <input
           value={chairman}
           onChange={(e) => setChairman(e.target.value)}
+          list="chairman-model-options"
+          placeholder="Select, type, or paste a chairman model..."
           style={{ ...input, width: "100%" }}
-        >
-          {chairman && !chairmanModelOptions.some((model) => model.model_key === chairman) && (
-            <option value={chairman}>{modelLabel(chairman)}</option>
-          )}
-          <option value="">Select a chairman model...</option>
+        />
+        <datalist id="chairman-model-options">
           {chairmanModelOptions.map((model) => (
             <option key={model.model_key} value={model.model_key}>
               {model.display_name}
             </option>
           ))}
-        </select>
+        </datalist>
 
         <h3 style={sectionHeader}>Presets</h3>
         {presetsError && (
