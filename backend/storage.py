@@ -270,3 +270,17 @@ def get_model_stats() -> list:
         .execute()
     )
     return result.data
+
+
+def list_available_models() -> List[Dict[str, Any]]:
+    """List active models from the Supabase-backed model catalog."""
+    result = (
+        get_client()
+        .table("available_models")
+        .select("*")
+        .eq("is_active", True)
+        .order("sort_order")
+        .order("display_name")
+        .execute()
+    )
+    return result.data or []

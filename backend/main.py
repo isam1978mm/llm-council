@@ -330,6 +330,16 @@ async def get_stats():
     return storage.get_model_stats()
 
 
+@app.get("/api/models")
+async def list_available_models():
+    """List available active models from the catalog."""
+    try:
+        return storage.list_available_models()
+    except Exception as e:
+        logger.error(f"Failed to list available models: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to load models: {str(e)}")
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)

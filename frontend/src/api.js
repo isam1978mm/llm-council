@@ -143,4 +143,9 @@ export const api = {
     if (!response.ok) throw new Error('Failed to get stats');
     return response.json();
   },
+  async listAvailableModels() {
+    const response = await fetch(`${API_BASE}/api/models`);
+    if (!response.ok) throw new Error('Failed to load available models');
+    return response.json();
+  },
 };
