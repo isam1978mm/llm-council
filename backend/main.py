@@ -329,21 +329,37 @@ async def health_check_models():
     cfg = app_config.load_config()
     models = cfg["council_models"]
 
-    from .openrouter import query_model
+    from . import codex_provider
+    from .openrouter import query_model as openrouter_query
+    from .config import normalize_model_spec
 
     async def check_model(model: str):
-        # Strip provider prefix (e.g. "openrouter:google/gemini-2.5-flash" -> "google/gemini-2.5-flash")
-        api_model = model.split(":", 1)[1] if ":" in model else model
+        normalized = normalize_model_spec(model)
+        provider, provider_model = normalized.split(":", 1)
         try:
-            result = await query_model(
-                api_model,
-                [{"role": "user", "content": "reply with ok"}],
-                timeout=30.0,
-            )
-            ok = result is not None and bool(result.get("content"))
-        except Exception:
-            ok = False
-        return {"model": model, "ok": ok}
+            if provider == "codex":
+                result = await asyncio.wait_for(
+                    codex_provider.query_model(provider_model, [{"role": "user", "content": "reply with ok"}], timeout=30.0),
+                    timeout=35.0,
+                )
+            elif provider == "openrouter":
+                result = await asyncio.wait_for(
+                    openrouter_query(provider_model, [{"role": "user", "content": "reply with ok"}], timeout=30.0),
+                    timeout=35.0,
+                )
+            else:
+                return {"model": model, "ok": False, "reason": f"unsupported provider '{provider}'"}
+
+            if result is None:
+                return {"model": model, "ok": False, "reason": "null response from provider"}
+            content = result.get("content")
+            if not content:
+                return {"model": model, "ok": False, "reason": "empty content in response"}
+            return {"model": model, "ok": True}
+        except asyncio.TimeoutError:
+            return {"model": model, "ok": False, "reason": "timeout (35s)"}
+        except Exception as exc:
+            return {"model": model, "ok": False, "reason": f"{type(exc).__name__}: {exc}"}
 
     results = await asyncio.gather(*[check_model(m) for m in models])
     return {"results": list(results), "all_ok": all(r["ok"] for r in results)}

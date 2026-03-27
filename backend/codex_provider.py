@@ -32,13 +32,17 @@ class CodexAppServerClient:
     async def ensure_started(self) -> None:
         async with self.init_lock:
             if self.ready and self.process and self.process.returncode is None:
+                logger.info("CODEX ensure_started: already ready, skipping")
                 return
 
             if not self.process or self.process.returncode is not None:
+                logger.info("CODEX ensure_started: process not running, spawning")
                 await self._spawn()
+                logger.info("CODEX ensure_started: spawn complete, pid=%s", getattr(self.process, 'pid', 'unknown'))
 
             if not self.initialized:
-                await self._send_request(
+                logger.info("CODEX ensure_started: sending initialize request")
+                result = await self._send_request(
                     "initialize",
                     {
                         "clientInfo": {
@@ -48,14 +52,20 @@ class CodexAppServerClient:
                         },
                     },
                 )
+                logger.info("CODEX ensure_started: initialize response=%s", result)
+                logger.info("CODEX ensure_started: sending initialized notification")
                 await self._send_notification("initialized", {})
+                logger.info("CODEX ensure_started: initialized notification sent")
                 self.initialized = True
 
+            logger.info("CODEX ensure_started: sending account/read")
             account_result = await self._send_request("account/read", {"refreshToken": False})
+            logger.info("CODEX ensure_started: account/read response=%s", account_result)
             if not account_result or not account_result.get("account"):
                 raise RuntimeError("Codex is not signed in. Run `codex login` before using the codex provider.")
 
             self.ready = True
+            logger.info("CODEX ensure_started: ready=True")
 
     async def query(self, model_alias: str, messages: List[Dict[str, str]], timeout: float) -> Optional[Dict[str, Any]]:
         await self.ensure_started()
@@ -103,13 +113,19 @@ class CodexAppServerClient:
         else:
             command = ("codex", "app-server")
 
-        self.process = await asyncio.create_subprocess_exec(
-            *command,
-            cwd=self.project_dir,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
+        logger.info("CODEX _spawn: command=%s cwd=%s platform=%s", command, self.project_dir, sys.platform)
+        try:
+            self.process = await asyncio.create_subprocess_exec(
+                *command,
+                cwd=self.project_dir,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            logger.info("CODEX _spawn: process started pid=%s", self.process.pid)
+        except Exception as exc:
+            logger.error("CODEX _spawn: FAILED to start process: %s: %s", type(exc).__name__, exc)
+            raise
 
         self.reader_task = asyncio.create_task(self._read_stdout())
         self.stderr_task = asyncio.create_task(self._read_stderr())
@@ -118,6 +134,7 @@ class CodexAppServerClient:
 
     async def _read_stdout(self) -> None:
         assert self.process is not None and self.process.stdout is not None
+        logger.info("CODEX _read_stdout: reader started")
 
         while True:
             line = await self.process.stdout.readline()
@@ -128,18 +145,23 @@ class CodexAppServerClient:
             if not text:
                 continue
 
+            logger.info("CODEX stdout: %s", text[:500])
+
             try:
                 message = json.loads(text)
             except json.JSONDecodeError:
-                logger.warning("Codex returned non-JSON output: %s", text)
+                logger.warning("CODEX stdout: non-JSON line: %s", text)
                 continue
 
             self._handle_message(message)
 
-        self._handle_exit(RuntimeError("Codex app-server exited unexpectedly."))
+        rc = self.process.returncode
+        logger.error("CODEX _read_stdout: EOF reached, process returncode=%s", rc)
+        self._handle_exit(RuntimeError(f"Codex app-server exited unexpectedly (returncode={rc})."))
 
     async def _read_stderr(self) -> None:
         assert self.process is not None and self.process.stderr is not None
+        logger.info("CODEX _read_stderr: reader started")
 
         while True:
             line = await self.process.stderr.readline()
@@ -147,7 +169,9 @@ class CodexAppServerClient:
                 break
             text = line.decode("utf-8", errors="replace").strip()
             if text:
-                logger.warning("Codex stderr: %s", text)
+                logger.warning("CODEX stderr: %s", text)
+
+        logger.info("CODEX _read_stderr: EOF reached")
 
     def _handle_message(self, message: Dict[str, Any]) -> None:
         if "id" in message:
@@ -226,7 +250,8 @@ class CodexAppServerClient:
         timeout: float = RPC_REQUEST_TIMEOUT,
     ) -> Dict[str, Any]:
         if not self.process or self.process.returncode is not None or not self.process.stdin:
-            raise RuntimeError("Codex app-server is not available.")
+            rc = getattr(self.process, 'returncode', 'N/A') if self.process else 'no process'
+            raise RuntimeError(f"Codex app-server is not available (returncode={rc}).")
 
         request_id = self.next_id
         self.next_id += 1
@@ -240,10 +265,13 @@ class CodexAppServerClient:
             "id": request_id,
             "params": params,
         }
+        logger.info("CODEX _send_request: id=%d method=%s", request_id, method)
         self.process.stdin.write((json.dumps(payload) + "\n").encode("utf-8"))
         await self.process.stdin.drain()
         try:
-            return await asyncio.wait_for(future, timeout=timeout)
+            result = await asyncio.wait_for(future, timeout=timeout)
+            logger.info("CODEX _send_request: id=%d method=%s -> response keys=%s", request_id, method, list(result.keys()) if isinstance(result, dict) else type(result).__name__)
+            return result
         except asyncio.TimeoutError as exc:
             self.pending.pop(request_id, None)
             raise RuntimeError(f"Codex request timed out waiting for '{method}' response.") from exc
@@ -284,9 +312,9 @@ async def query_model(
     messages: List[Dict[str, str]],
     timeout: float = 120.0,
 ) -> Optional[Dict[str, Any]]:
-    """Query the local Codex provider."""
+    """Query the local Codex provider. Raises on failure so callers can capture the reason."""
     try:
         return await _CLIENT.query(model, messages, timeout=timeout)
     except Exception as exc:
         logger.error("Error querying Codex model %s: %s", model, exc)
-        return None
+        raise

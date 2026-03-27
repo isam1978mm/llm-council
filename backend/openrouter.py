@@ -42,10 +42,16 @@ async def query_model(
                 headers=headers,
                 json=payload
             )
+            if response.status_code != 200:
+                body_preview = response.text[:300]
+                raise RuntimeError(f"HTTP {response.status_code}: {body_preview}")
             response.raise_for_status()
 
             data = response.json()
-            message = data['choices'][0]['message']
+            choices = data.get('choices')
+            if not choices:
+                raise RuntimeError(f"No choices in response: {str(data)[:200]}")
+            message = choices[0]['message']
 
             return {
                 'content': message.get('content'),
@@ -54,7 +60,7 @@ async def query_model(
 
     except Exception as e:
         logger.error("Error querying OpenRouter model %s: %s", model, e)
-        return None
+        raise
 
 
 async def query_models_parallel(
