@@ -47,7 +47,8 @@ function HealthCheck({ onProceed, onCancel }) {
   const failedStatuses = statuses ? statuses.filter((s) => s.ok === false) : [];
   const failedModels = failedStatuses.map((s) => s.model);
   const pending = !statuses || statuses.some((s) => s.ok === null);
-  const canProceed = summary?.canProceed ?? false;
+  const canProceed = summary?.canProceed
+    ?? (statuses !== null && statuses.some((s) => s.ok === true && s.role !== 'chairman'));
   const hasPartialFailure = summary && !summary.allOk && summary.usableCount > 0;
 
   return (
