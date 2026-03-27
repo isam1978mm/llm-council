@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
+import HealthCheck from './components/HealthCheck';
 import Settings from './Settings';
 import Leaderboard from './Leaderboard';
 import Models from './Models';
@@ -235,6 +236,7 @@ function BrowserApp() {
   const [showSettings, setShowSettings] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showModels, setShowModels] = useState(false);
+  const [showHealthCheck, setShowHealthCheck] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'system');
   const activeStreamControllerRef = useRef(null);
@@ -339,7 +341,13 @@ function BrowserApp() {
     };
   }, [currentConversationId, authUserId]);
 
-  const handleNewConversation = async () => {
+  const handleNewConversation = () => {
+    setShowHealthCheck(true);
+    setSidebarOpen(false);
+  };
+
+  const handleHealthCheckProceed = async () => {
+    setShowHealthCheck(false);
     try {
       const newConv = await api.createConversation();
       setConversations([
@@ -627,6 +635,12 @@ function BrowserApp() {
       {showLeaderboard && <Leaderboard onClose={() => setShowLeaderboard(false)} />}
       {showSettings && <Settings onClose={() => setShowSettings(false)} theme={theme} onThemeChange={setTheme} />}
       {showModels && <Models onClose={() => setShowModels(false)} />}
+      {showHealthCheck && (
+        <HealthCheck
+          onProceed={handleHealthCheckProceed}
+          onCancel={() => setShowHealthCheck(false)}
+        />
+      )}
 
       {sidebarOpen && (
         <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
@@ -636,7 +650,7 @@ function BrowserApp() {
         conversations={conversations}
         currentConversationId={currentConversationId}
         onSelectConversation={handleSelectConversation}
-        onNewConversation={() => { handleNewConversation(); setSidebarOpen(false); }}
+        onNewConversation={handleNewConversation}
         onDeleteConversation={handleDeleteConversation}
         onRenameConversation={handleRenameConversation}
         onShowSettings={() => setShowSettings(true)}

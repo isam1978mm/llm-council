@@ -1,0 +1,141 @@
+.health-check-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.health-check-modal {
+  background: var(--bg-secondary, #fff);
+  border-radius: 12px;
+  padding: 32px;
+  width: 420px;
+  max-width: 90vw;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  border: 1px solid var(--border-primary, #e0e0e0);
+}
+
+.health-check-title {
+  margin: 0 0 6px 0;
+  font-size: 20px;
+  color: var(--text-primary, #222);
+}
+
+.health-check-subtitle {
+  margin: 0 0 24px 0;
+  color: var(--text-secondary, #666);
+  font-size: 14px;
+}
+
+.health-check-error {
+  background: #fff0f0;
+  border: 1px solid #f5c2c2;
+  border-radius: 6px;
+  padding: 10px 14px;
+  color: #c0392b;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.health-check-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 28px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.health-check-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg-tertiary, #f8f8f8);
+  border-radius: 8px;
+  border: 1px solid var(--border-primary, #e8e8e8);
+}
+
+.health-check-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  width: 24px;
+  text-align: center;
+}
+
+.health-check-model-name {
+  font-family: monospace;
+  font-size: 13px;
+  color: var(--text-primary, #333);
+  word-break: break-all;
+}
+
+.health-check-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border-primary, #d0d0d0);
+  border-top-color: #4a90e2;
+  border-radius: 50%;
+  animation: hc-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes hc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.health-check-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.health-check-btn {
+  padding: 10px 20px;
+  border-radius: 7px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.health-check-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.health-check-btn.cancel {
+  background: var(--bg-hover, #f0f0f0);
+  color: var(--text-secondary, #555);
+  border: 1px solid var(--border-primary, #ddd);
+}
+
+.health-check-btn.cancel:hover:not(:disabled) {
+  background: var(--bg-tertiary, #e0e0e0);
+}
+
+.health-check-btn.retry {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffc107;
+}
+
+.health-check-btn.retry:hover:not(:disabled) {
+  background: #ffe69c;
+}
+
+.health-check-btn.proceed {
+  background: #4a90e2;
+  color: #fff;
+}
+
+.health-check-btn.proceed:hover:not(:disabled) {
+  background: #357abd;
+}

@@ -323,6 +323,32 @@ async def delete_preset(preset_id: str):
     return {"status": "ok"}
 
 
+@app.get("/api/health-check")
+async def health_check_models():
+    """Check if all council models are responding."""
+    cfg = app_config.load_config()
+    models = cfg["council_models"]
+
+    from .openrouter import query_model
+
+    async def check_model(model: str):
+        # Strip provider prefix (e.g. "openrouter:google/gemini-2.5-flash" -> "google/gemini-2.5-flash")
+        api_model = model.split(":", 1)[1] if ":" in model else model
+        try:
+            result = await query_model(
+                api_model,
+                [{"role": "user", "content": "reply with ok"}],
+                timeout=30.0,
+            )
+            ok = result is not None and bool(result.get("content"))
+        except Exception:
+            ok = False
+        return {"model": model, "ok": ok}
+
+    results = await asyncio.gather(*[check_model(m) for m in models])
+    return {"results": list(results), "all_ok": all(r["ok"] for r in results)}
+
+
 @app.get("/api/stats")
 async def get_stats():
     """Get model performance stats."""

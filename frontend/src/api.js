@@ -173,4 +173,9 @@ export const api = {
     if (!response.ok) throw new Error('Failed to sync OpenRouter models');
     return response.json();
   },
+  async checkHealth() {
+    const response = await fetch(`${API_BASE}/api/health-check`);
+    if (!response.ok) throw new Error('Failed to run health check');
+    return response.json();
+  },
 };
