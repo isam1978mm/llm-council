@@ -36,6 +36,7 @@ async def stage2_collect_rankings(
 ) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
     """
     Stage 2: Each model ranks the anonymized responses.
+    Only models that successfully returned Stage 1 responses participate.
     """
     labels = [chr(65 + i) for i in range(len(stage1_results))]
 
@@ -82,7 +83,9 @@ Now provide your evaluation and ranking:"""
 
     messages = [{"role": "user", "content": ranking_prompt}]
 
-    responses = await query_models_parallel(load_config()["council_models"], messages)
+    # Only ask models that actually responded in Stage 1
+    stage1_models = [r["model"] for r in stage1_results]
+    responses = await query_models_parallel(stage1_models, messages)
 
     stage2_results = []
     for model, response in responses.items():
@@ -98,6 +101,30 @@ Now provide your evaluation and ranking:"""
     return stage2_results, label_to_model
 
 
+async def _query_with_chairman_fallback(
+    chairman_model: str,
+    stage1_results: List[Dict[str, Any]],
+    messages: List[Dict[str, str]],
+) -> Tuple[str, Any]:
+    """Try the configured chairman; fall back to first healthy council model on failure."""
+    response = await query_model(chairman_model, messages)
+    if response is not None:
+        return chairman_model, response
+
+    logger.warning("Chairman %s failed, attempting fallback", chairman_model)
+    for result in stage1_results:
+        fallback = result["model"]
+        if fallback == chairman_model:
+            continue
+        resp = await query_model(fallback, messages)
+        if resp is not None:
+            logger.warning("Chairman fallback succeeded using %s", fallback)
+            return fallback, resp
+
+    logger.error("Chairman and all fallbacks failed")
+    return chairman_model, None
+
+
 async def stage3_synthesize_final(
     user_query: str,
     stage1_results: List[Dict[str, Any]],
@@ -105,6 +132,7 @@ async def stage3_synthesize_final(
 ) -> Dict[str, Any]:
     """
     Stage 3: Chairman synthesizes final response.
+    Falls back to a healthy council model if the configured chairman fails.
     """
     chairman_model = load_config()["chairman_model"]
 
@@ -137,17 +165,20 @@ Provide a clear, well-reasoned final answer that represents the council's collec
 
     messages = [{"role": "user", "content": chairman_prompt}]
 
-    response = await query_model(chairman_model, messages)
+    actual_chairman, response = await _query_with_chairman_fallback(
+        chairman_model, stage1_results, messages
+    )
 
     if response is None:
         return {
-            "model": chairman_model,
+            "model": actual_chairman,
             "response": "Error: Unable to generate final synthesis."
         }
 
     return {
-        "model": chairman_model,
-        "response": response.get('content', '')
+        "model": actual_chairman,
+        "response": response.get('content', ''),
+        **({"fallback_chairman": True} if actual_chairman != chairman_model else {}),
     }
 
 
@@ -321,6 +352,7 @@ async def stage5_debate_verdict(
     """
     Stage 5: Chairman reviews the Stage 1 answers and Stage 4 debate transcript,
     then delivers a verdict on who won the debate and why.
+    Falls back to a healthy council model if the configured chairman fails.
     """
     chairman_model = load_config()["chairman_model"]
 
@@ -349,17 +381,20 @@ Render your verdict by addressing the following:
 
 Be specific — reference actual arguments from the debate transcript. Be decisive."""
 
-    response = await query_model(chairman_model, [{"role": "user", "content": verdict_prompt}])
+    actual_chairman, response = await _query_with_chairman_fallback(
+        chairman_model, stage1_results, [{"role": "user", "content": verdict_prompt}]
+    )
 
     if response is None:
         return {
-            "model": chairman_model,
+            "model": actual_chairman,
             "verdict": "Error: Unable to generate debate verdict."
         }
 
     return {
-        "model": chairman_model,
+        "model": actual_chairman,
         "verdict": response.get("content", ""),
+        **({"fallback_chairman": True} if actual_chairman != chairman_model else {}),
     }
 
 
@@ -368,9 +403,11 @@ async def stage_tldr_summary(
     stage5_result: Dict[str, Any],
     stage4_results: List[Dict[str, Any]],
     stage3_result: Dict[str, Any],
+    stage1_results: List[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     TL;DR: Chairman produces a 3-5 bullet summary of the full council session.
+    Falls back to a healthy council model if the configured chairman fails.
     """
     chairman_model = load_config()["chairman_model"]
 
@@ -402,14 +439,17 @@ Rules:
 - 3 to 5 bullets maximum.
 - Each bullet should be one concise sentence."""
 
-    response = await query_model(chairman_model, [{"role": "user", "content": prompt}])
+    actual_chairman, response = await _query_with_chairman_fallback(
+        chairman_model, stage1_results or [], [{"role": "user", "content": prompt}]
+    )
 
     if response is None:
-        return {"model": chairman_model, "bullets": "- Unable to generate summary."}
+        return {"model": actual_chairman, "bullets": "- Unable to generate summary."}
 
     return {
-        "model": chairman_model,
+        "model": actual_chairman,
         "bullets": response.get("content", "").strip(),
+        **({"fallback_chairman": True} if actual_chairman != chairman_model else {}),
     }
 
 
@@ -482,7 +522,7 @@ async def run_full_council(user_query: str) -> Tuple[List, List, Dict, List, Dic
     if stage4_results:
         stage5_result = await stage5_debate_verdict(user_query, stage1_results, stage4_results)
 
-    tldr = await stage_tldr_summary(user_query, stage5_result, stage4_results, stage3_result)
+    tldr = await stage_tldr_summary(user_query, stage5_result, stage4_results, stage3_result, stage1_results)
 
     metadata = {
         "label_to_model": label_to_model,

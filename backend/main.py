@@ -235,7 +235,7 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
 
             # TL;DR summary
             yield f"data: {json.dumps({'type': 'tldr_start'})}\n\n"
-            tldr = await stage_tldr_summary(request.content, stage5_result, stage4_results, stage3_result)
+            tldr = await stage_tldr_summary(request.content, stage5_result, stage4_results, stage3_result, stage1_results)
             yield f"data: {json.dumps({'type': 'tldr_complete', 'data': tldr})}\n\n"
 
             if title_task:
@@ -325,15 +325,16 @@ async def delete_preset(preset_id: str):
 
 @app.get("/api/health-check")
 async def health_check_models():
-    """Check if all council models are responding."""
+    """Check if all council models are responding. Returns per-model status and a proceed summary."""
     cfg = app_config.load_config()
-    models = cfg["council_models"]
+    council_models = cfg["council_models"]
+    chairman_model = cfg["chairman_model"]
 
     from . import codex_provider
     from .openrouter import query_model as openrouter_query
     from .config import normalize_model_spec
 
-    async def check_model(model: str):
+    async def check_one(model: str, role: str = "council"):
         normalized = normalize_model_spec(model)
         provider, provider_model = normalized.split(":", 1)
         try:
@@ -348,21 +349,56 @@ async def health_check_models():
                     timeout=35.0,
                 )
             else:
-                return {"model": model, "ok": False, "reason": f"unsupported provider '{provider}'"}
+                return {"model": model, "role": role, "ok": False, "reason": f"unsupported provider '{provider}'"}
 
             if result is None:
-                return {"model": model, "ok": False, "reason": "null response from provider"}
+                return {"model": model, "role": role, "ok": False, "reason": "null response from provider"}
             content = result.get("content")
             if not content:
-                return {"model": model, "ok": False, "reason": "empty content in response"}
-            return {"model": model, "ok": True}
+                return {"model": model, "role": role, "ok": False, "reason": "empty content in response"}
+            return {"model": model, "role": role, "ok": True}
         except asyncio.TimeoutError:
-            return {"model": model, "ok": False, "reason": "timeout (35s)"}
+            return {"model": model, "role": role, "ok": False, "reason": "timeout (35s)"}
         except Exception as exc:
-            return {"model": model, "ok": False, "reason": f"{type(exc).__name__}: {exc}"}
+            return {"model": model, "role": role, "ok": False, "reason": f"{type(exc).__name__}: {exc}"}
 
-    results = await asyncio.gather(*[check_model(m) for m in models])
-    return {"results": list(results), "all_ok": all(r["ok"] for r in results)}
+    # Check all council models in parallel; chairman may overlap with council models
+    council_tasks = [check_one(m, "council") for m in council_models]
+    chairman_in_council = chairman_model in council_models
+    if not chairman_in_council:
+        all_tasks = council_tasks + [check_one(chairman_model, "chairman")]
+    else:
+        all_tasks = council_tasks
+
+    all_results = await asyncio.gather(*all_tasks)
+    council_results = list(all_results[:len(council_models)])
+
+    if chairman_in_council:
+        chairman_ok = next((r["ok"] for r in council_results if r["model"] == chairman_model), False)
+    else:
+        chairman_result = all_results[-1]
+        chairman_ok = chairman_result["ok"]
+
+    healthy_council = [r["model"] for r in council_results if r["ok"]]
+    failed_council = [r for r in council_results if not r["ok"]]
+
+    # can_proceed: at least 1 healthy council model, and chairman is ok or we have a fallback
+    chairman_usable = chairman_ok or len(healthy_council) >= 1
+    can_proceed = len(healthy_council) >= 1 and chairman_usable
+
+    results_out = council_results
+    if not chairman_in_council:
+        results_out = council_results + [all_results[-1]]
+
+    return {
+        "results": results_out,
+        "all_ok": all(r["ok"] for r in results_out),
+        "healthy_models": healthy_council,
+        "failed_models": [r["model"] for r in failed_council],
+        "usable_count": len(healthy_council),
+        "can_proceed": can_proceed,
+        "chairman_ok": chairman_ok,
+    }
 
 
 @app.get("/api/stats")

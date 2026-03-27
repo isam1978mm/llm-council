@@ -5,6 +5,7 @@ import './HealthCheck.css';
 function HealthCheck({ onProceed, onCancel }) {
   // null = pending, true = ok, false = failed
   const [statuses, setStatuses] = useState(null);
+  const [summary, setSummary] = useState(null);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState(null);
 
@@ -18,11 +19,20 @@ function HealthCheck({ onProceed, onCancel }) {
       );
     } else {
       setStatuses(null);
+      setSummary(null);
     }
 
     try {
       const data = await api.checkHealth();
-      setStatuses(data.results.map((r) => ({ model: r.model, ok: r.ok })));
+      setStatuses(data.results.map((r) => ({ model: r.model, ok: r.ok, reason: r.reason, role: r.role })));
+      setSummary({
+        canProceed: data.can_proceed,
+        allOk: data.all_ok,
+        healthyModels: data.healthy_models ?? [],
+        failedModels: data.failed_models ?? [],
+        usableCount: data.usable_count ?? 0,
+        chairmanOk: data.chairman_ok,
+      });
     } catch (e) {
       setError('Could not reach backend. Is the server running?');
     } finally {
@@ -34,19 +44,28 @@ function HealthCheck({ onProceed, onCancel }) {
     runCheck();
   }, [runCheck]);
 
-  const failedModels = statuses ? statuses.filter((s) => s.ok === false).map((s) => s.model) : [];
-  const allOk = statuses && statuses.length > 0 && statuses.every((s) => s.ok === true);
+  const failedStatuses = statuses ? statuses.filter((s) => s.ok === false) : [];
+  const failedModels = failedStatuses.map((s) => s.model);
   const pending = !statuses || statuses.some((s) => s.ok === null);
+  const canProceed = summary?.canProceed ?? false;
+  const hasPartialFailure = summary && !summary.allOk && summary.usableCount > 0;
 
   return (
     <div className="health-check-overlay">
       <div className="health-check-modal">
         <h2 className="health-check-title">Model Health Check</h2>
         <p className="health-check-subtitle">
-          Verifying all council models are reachable before starting.
+          Verifying council models are reachable before starting.
         </p>
 
         {error && <div className="health-check-error">{error}</div>}
+
+        {hasPartialFailure && !pending && (
+          <div className="health-check-warning">
+            {summary.usableCount} of {statuses.filter(s => s.role !== 'chairman' || !summary.chairmanOk).length + summary.usableCount} model{summary.usableCount !== 1 ? 's' : ''} healthy.
+            Failed models will be skipped — the council will continue with the remaining {summary.usableCount}.
+          </div>
+        )}
 
         <ul className="health-check-list">
           {statuses === null && !error ? (
@@ -64,7 +83,13 @@ function HealthCheck({ onProceed, onCancel }) {
                 ) : (
                   <span className="health-check-icon fail">❌</span>
                 )}
-                <span className="health-check-model-name">{s.model}</span>
+                <span className="health-check-model-name">
+                  {s.model}
+                  {s.role === 'chairman' && <span className="health-check-role-tag"> (chairman)</span>}
+                </span>
+                {s.ok === false && s.reason && (
+                  <span className="health-check-reason">{s.reason}</span>
+                )}
               </li>
             ))
           )}
@@ -94,9 +119,9 @@ function HealthCheck({ onProceed, onCancel }) {
           <button
             className="health-check-btn proceed"
             onClick={onProceed}
-            disabled={!allOk}
+            disabled={pending || !canProceed}
           >
-            Proceed
+            {hasPartialFailure ? 'Proceed Anyway' : 'Proceed'}
           </button>
         </div>
       </div>
