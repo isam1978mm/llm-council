@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(taskkill /F /PID 38840 /PID 35564)",
+      "Bash(netstat -ano)"
     ]
   }
 }

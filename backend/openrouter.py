@@ -43,8 +43,11 @@ async def query_model(
                 json=payload
             )
             if response.status_code != 200:
-                body_preview = response.text[:300]
-                raise RuntimeError(f"HTTP {response.status_code}: {body_preview}")
+                try:
+                    msg = response.json().get("error", {}).get("message") or response.text[:200]
+                except Exception:
+                    msg = response.text[:200]
+                raise RuntimeError(msg)
             response.raise_for_status()
 
             data = response.json()

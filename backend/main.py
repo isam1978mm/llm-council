@@ -360,7 +360,7 @@ async def health_check_models():
         except asyncio.TimeoutError:
             return {"model": model, "role": role, "ok": False, "reason": "timeout (35s)"}
         except Exception as exc:
-            return {"model": model, "role": role, "ok": False, "reason": f"{type(exc).__name__}: {exc}"}
+            return {"model": model, "role": role, "ok": False, "reason": str(exc)}
 
     # Check all council models in parallel; chairman may overlap with council models
     council_tasks = [check_one(m, "council") for m in council_models]
