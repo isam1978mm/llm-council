@@ -6,7 +6,7 @@ import Stage3 from './Stage3';
 import Stage4 from './Stage4';
 import Stage5 from './Stage5';
 import TldrCard from './TldrCard';
-import { exportJSON, exportMarkdown } from '../utils/exportConversation';
+import { downloadConversationExport } from '../utils/exportConversation';
 import './ChatInterface.css';
 
 export default function ChatInterface({
@@ -36,6 +36,10 @@ export default function ChatInterface({
     scrollToBottom();
   }, [conversation, statusText, errorText, approvalText]);
 
+  useEffect(() => {
+    setShowExportMenu(false);
+  }, [conversation?.id]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (input.trim() && !isLoading) {
@@ -49,6 +53,11 @@ export default function ChatInterface({
       e.preventDefault();
       handleSubmit(e);
     }
+  };
+
+  const handleExport = (format) => {
+    downloadConversationExport(conversation, format);
+    setShowExportMenu(false);
   };
 
   if (!conversation) {
@@ -81,6 +90,37 @@ export default function ChatInterface({
           </div>
         </div>
       )}
+
+      <div className="conversation-actions">
+        <div className="conversation-actions-spacer" />
+        <div className="export-menu">
+          <button
+            type="button"
+            className="conversation-action-button"
+            onClick={() => setShowExportMenu((prev) => !prev)}
+          >
+            Export
+          </button>
+          {showExportMenu && (
+            <div className="export-menu-options">
+              <button
+                type="button"
+                className="export-menu-option"
+                onClick={() => handleExport('json')}
+              >
+                Export as JSON
+              </button>
+              <button
+                type="button"
+                className="export-menu-option"
+                onClick={() => handleExport('markdown')}
+              >
+                Export as Markdown
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
 
       <div className="messages-container">
         {conversation.messages.length === 0 ? (
@@ -207,37 +247,14 @@ export default function ChatInterface({
           disabled={isLoading || (mode === 'codex' && !canStopCodex)}
           rows={3}
         />
-        <div className="input-actions">
-          {mode !== 'codex' && conversation.messages.length > 0 && (
-            <div className="export-wrapper">
-              <button
-                type="button"
-                className="export-button"
-                onClick={() => setShowExportMenu((v) => !v)}
-              >
-                Export ▾
-              </button>
-              {showExportMenu && (
-                <div className="export-menu">
-                  <button type="button" onClick={() => { exportJSON(conversation); setShowExportMenu(false); }}>
-                    Export as JSON
-                  </button>
-                  <button type="button" onClick={() => { exportMarkdown(conversation); setShowExportMenu(false); }}>
-                    Export as Markdown
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-          <button
-            type={isLoading && mode !== 'codex' ? 'button' : 'submit'}
-            className="send-button"
-            onClick={isLoading && mode !== 'codex' ? onStopMessage : undefined}
-            disabled={isLoading ? false : (!input.trim() || (mode === 'codex' && !canStopCodex))}
-          >
-            {isLoading && mode !== 'codex' ? 'Stop' : 'Send'}
-          </button>
-        </div>
+        <button
+          type={isLoading && mode !== 'codex' ? 'button' : 'submit'}
+          className="send-button"
+          onClick={isLoading && mode !== 'codex' ? onStopMessage : undefined}
+          disabled={isLoading ? false : (!input.trim() || (mode === 'codex' && !canStopCodex))}
+        >
+          {isLoading && mode !== 'codex' ? 'Stop' : 'Send'}
+        </button>
       </form>
     </div>
   );

@@ -1,127 +1,145 @@
-/** Sanitize a conversation title into a safe filename stem. */
-function toFilename(title) {
-  return (title || 'conversation')
-    .replace(/[^\w\s-]/g, '')
+function sanitizeFilenamePart(value, fallback = 'conversation') {
+  const normalized = String(value ?? '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim()
-    .replace(/\s+/g, '_')
-    .slice(0, 80) || 'conversation';
+    .replace(/[ .]+$/g, '');
+
+  return normalized || fallback;
 }
 
-/** Trigger a file download in the browser. */
-function download(filename, content, mimeType) {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-/** Export conversation as JSON. */
-export function exportJSON(conversation) {
-  const filename = `${toFilename(conversation.title)}.json`;
-  const content = JSON.stringify(conversation, null, 2);
-  download(filename, content, 'application/json');
-}
-
-/** Export conversation as Markdown. */
-export function exportMarkdown(conversation) {
-  const filename = `${toFilename(conversation.title)}.md`;
-  const lines = [];
-
-  lines.push(`# ${conversation.title || 'Conversation'}`);
-  lines.push('');
-  lines.push(`**ID:** ${conversation.id}`);
-  lines.push(`**Created:** ${conversation.created_at}`);
-  lines.push('');
-  lines.push('---');
-  lines.push('');
-
-  for (const msg of conversation.messages || []) {
-    if (msg.role === 'user') {
-      lines.push('## User');
-      lines.push('');
-      lines.push(msg.content || '');
-      lines.push('');
-    } else {
-      lines.push('## LLM Council');
-      lines.push('');
-
-      if (msg.stage1?.length) {
-        lines.push('### Stage 1 — Individual Responses');
-        lines.push('');
-        for (const r of msg.stage1) {
-          lines.push(`**${r.model}**`);
-          lines.push('');
-          lines.push(r.response || '');
-          lines.push('');
-        }
-      }
-
-      if (msg.stage2?.length) {
-        lines.push('### Stage 2 — Peer Rankings');
-        lines.push('');
-        for (const r of msg.stage2) {
-          lines.push(`**${r.model}**`);
-          lines.push('');
-          lines.push(r.ranking || '');
-          lines.push('');
-        }
-        if (msg.metadata?.aggregate_rankings?.length) {
-          lines.push('**Aggregate Rankings**');
-          lines.push('');
-          for (const ar of msg.metadata.aggregate_rankings) {
-            lines.push(`- ${ar.model}: avg rank ${ar.average_rank}`);
-          }
-          lines.push('');
-        }
-      }
-
-      if (msg.stage3) {
-        lines.push('### Stage 3 — Chairman Synthesis');
-        lines.push('');
-        lines.push(`*Chairman: ${msg.stage3.model}*`);
-        lines.push('');
-        lines.push(msg.stage3.response || '');
-        lines.push('');
-      }
-
-      if (msg.stage4?.length) {
-        lines.push('### Stage 4 — Debate');
-        lines.push('');
-        for (const round of msg.stage4) {
-          lines.push(`**Round ${round.round}**`);
-          lines.push('');
-          for (const m of round.messages || []) {
-            lines.push(`*${m.role.toUpperCase()} — ${m.model}*`);
-            lines.push('');
-            lines.push(m.content || '');
-            lines.push('');
-          }
-        }
-      }
-
-      if (msg.stage5) {
-        lines.push('### Stage 5 — Debate Verdict');
-        lines.push('');
-        lines.push(`*Chairman: ${msg.stage5.model}*`);
-        lines.push('');
-        lines.push(msg.stage5.verdict || '');
-        lines.push('');
-      }
-
-      if (msg.tldr) {
-        lines.push('### TL;DR');
-        lines.push('');
-        lines.push(msg.tldr.bullets || '');
-        lines.push('');
-      }
-
-      lines.push('---');
-      lines.push('');
-    }
+function serializeValue(value) {
+  if (value == null) {
+    return '';
   }
 
-  download(filename, lines.join('\n'), 'text/markdown');
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+
+  try {
+    return `\n\`\`\`json\n${JSON.stringify(value, null, 2)}\n\`\`\``;
+  } catch {
+    return `\n\`\`\`\n${String(value)}\n\`\`\``;
+  }
+}
+
+function normalizeMessage(message) {
+  if (message?.role === 'assistant') {
+    return {
+      role: 'assistant',
+      content: message.content ?? null,
+      stage1: message.stage1 ?? null,
+      stage2: message.stage2 ?? null,
+      stage3: message.stage3 ?? null,
+      stage4: message.stage4 ?? null,
+      stage5: message.stage5 ?? null,
+      tldr: message.tldr ?? null,
+      metadata: message.metadata ?? null,
+    };
+  }
+
+  return {
+    role: message?.role ?? 'user',
+    content: message?.content ?? '',
+  };
+}
+
+export function buildExportPayload(conversation) {
+  return {
+    id: conversation?.id ?? null,
+    title: conversation?.title ?? '',
+    created_at: conversation?.created_at ?? null,
+    messages: (conversation?.messages ?? []).map(normalizeMessage),
+  };
+}
+
+export function conversationToJson(conversation) {
+  return JSON.stringify(buildExportPayload(conversation), null, 2);
+}
+
+export function conversationToMarkdown(conversation) {
+  const payload = buildExportPayload(conversation);
+  const lines = [
+    `# ${payload.title || 'Untitled Conversation'}`,
+    '',
+    '## Metadata',
+    `- ID: ${payload.id ?? ''}`,
+    `- Created At: ${payload.created_at ?? ''}`,
+    `- Message Count: ${payload.messages.length}`,
+  ];
+
+  payload.messages.forEach((message) => {
+    if (message.role === 'user') {
+      lines.push('', '## User', '', message.content || '');
+      return;
+    }
+
+    lines.push('', '## LLM Council');
+
+    if (message.content) {
+      lines.push('', '### Content', '', message.content);
+    }
+
+    const sections = [
+      ['Stage 1', message.stage1],
+      ['Stage 2', message.stage2],
+      ['Stage 3', message.stage3],
+      ['Stage 4', message.stage4],
+      ['Stage 5', message.stage5],
+      ['TL;DR', message.tldr],
+      ['Metadata', message.metadata],
+    ];
+
+    sections.forEach(([label, value]) => {
+      if (value == null) {
+        return;
+      }
+
+      if (Array.isArray(value) && value.length === 0) {
+        return;
+      }
+
+      lines.push('', `### ${label}`, '', serializeValue(value));
+    });
+  });
+
+  return `${lines.join('\n').trim()}\n`;
+}
+
+export function getConversationExportFilename(conversation, extension) {
+  const title = sanitizeFilenamePart(conversation?.title, sanitizeFilenamePart(conversation?.id, 'conversation'));
+  return `${title}.${extension}`;
+}
+
+export function downloadConversationExport(conversation, format) {
+  const exportMap = {
+    json: {
+      content: conversationToJson(conversation),
+      mimeType: 'application/json;charset=utf-8',
+      extension: 'json',
+    },
+    markdown: {
+      content: conversationToMarkdown(conversation),
+      mimeType: 'text/markdown;charset=utf-8',
+      extension: 'md',
+    },
+  };
+
+  const exportConfig = exportMap[format];
+  if (!exportConfig) {
+    throw new Error(`Unsupported export format: ${format}`);
+  }
+
+  const blob = new Blob([exportConfig.content], { type: exportConfig.mimeType });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = getConversationExportFilename(conversation, exportConfig.extension);
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
 }
