@@ -10,6 +10,8 @@ from . import storage
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+STAGE5_VERDICT_TIMEOUT_SECONDS = 180.0
+
 
 async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
     """
@@ -105,9 +107,10 @@ async def _query_with_chairman_fallback(
     chairman_model: str,
     stage1_results: List[Dict[str, Any]],
     messages: List[Dict[str, str]],
+    timeout: float = 120.0,
 ) -> Tuple[str, Any]:
     """Try the configured chairman; fall back to first healthy council model on failure."""
-    response = await query_model(chairman_model, messages)
+    response = await query_model(chairman_model, messages, timeout=timeout)
     if response is not None:
         return chairman_model, response
 
@@ -116,7 +119,7 @@ async def _query_with_chairman_fallback(
         fallback = result["model"]
         if fallback == chairman_model:
             continue
-        resp = await query_model(fallback, messages)
+        resp = await query_model(fallback, messages, timeout=timeout)
         if resp is not None:
             logger.warning("Chairman fallback succeeded using %s", fallback)
             return fallback, resp
@@ -348,6 +351,7 @@ async def stage5_debate_verdict(
     user_query: str,
     stage1_results: List[Dict[str, Any]],
     stage4_results: List[Dict[str, Any]],
+    stage3_result: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     """
     Stage 5: Chairman reviews the Stage 1 answers and Stage 4 debate transcript,
@@ -382,19 +386,40 @@ Render your verdict by addressing the following:
 Be specific — reference actual arguments from the debate transcript. Be decisive."""
 
     actual_chairman, response = await _query_with_chairman_fallback(
-        chairman_model, stage1_results, [{"role": "user", "content": verdict_prompt}]
+        chairman_model,
+        stage1_results,
+        [{"role": "user", "content": verdict_prompt}],
+        timeout=STAGE5_VERDICT_TIMEOUT_SECONDS,
     )
 
     if response is None:
+        logger.warning(
+            "STAGE5 verdict fallback used for chairman=%s after verdict generation failed",
+            chairman_model,
+        )
+        fallback_synthesis = (stage3_result or {}).get("response", "").strip()
+        fallback_verdict = (
+            "Debate verdict could not be generated before the chairman timeout. "
+            "Using the Stage 3 synthesis as the fallback final assessment."
+        )
+        if fallback_synthesis:
+            fallback_verdict = (
+                f"{fallback_verdict}\n\n"
+                "Fallback assessment from Stage 3:\n\n"
+                f"{fallback_synthesis}"
+            )
         return {
             "model": actual_chairman,
-            "verdict": "Error: Unable to generate debate verdict."
+            "verdict": fallback_verdict,
+            "fallback": True,
+            **({"fallback_chairman": True} if actual_chairman != chairman_model else {}),
         }
 
     return {
         "model": actual_chairman,
         "verdict": response.get("content", ""),
         **({"fallback_chairman": True} if actual_chairman != chairman_model else {}),
+        "fallback": False,
     }
 
 
@@ -520,7 +545,12 @@ async def run_full_council(user_query: str) -> Tuple[List, List, Dict, List, Dic
 
     stage5_result = None
     if stage4_results:
-        stage5_result = await stage5_debate_verdict(user_query, stage1_results, stage4_results)
+        stage5_result = await stage5_debate_verdict(
+            user_query,
+            stage1_results,
+            stage4_results,
+            stage3_result,
+        )
 
     tldr = await stage_tldr_summary(user_query, stage5_result, stage4_results, stage3_result, stage1_results)
 

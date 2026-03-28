@@ -202,7 +202,7 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
             aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
             yield f"data: {json.dumps({'type': 'stage2_complete', 'data': stage2_results, 'metadata': {'label_to_model': label_to_model, 'aggregate_rankings': aggregate_rankings}})}\n\n"
 
-            # ← NEW: Record model stats after Stage 2
+            # ? NEW: Record model stats after Stage 2
             try:
                 all_models = [r["model"] for r in stage1_results]
                 storage.record_model_appearances(all_models, aggregate_rankings)
@@ -230,7 +230,12 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
             stage5_result = None
             if stage4_results:
                 yield f"data: {json.dumps({'type': 'stage5_start'})}\n\n"
-                stage5_result = await stage5_debate_verdict(request.content, stage1_results, stage4_results)
+                stage5_result = await stage5_debate_verdict(
+                    request.content,
+                    stage1_results,
+                    stage4_results,
+                    stage3_result,
+                )
                 yield f"data: {json.dumps({'type': 'stage5_complete', 'data': stage5_result})}\n\n"
 
             # TL;DR summary
