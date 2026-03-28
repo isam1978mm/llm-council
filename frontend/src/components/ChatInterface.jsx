@@ -6,6 +6,7 @@ import Stage3 from './Stage3';
 import Stage4 from './Stage4';
 import Stage5 from './Stage5';
 import TldrCard from './TldrCard';
+import { exportJSON, exportMarkdown } from '../utils/exportConversation';
 import './ChatInterface.css';
 
 export default function ChatInterface({
@@ -24,6 +25,7 @@ export default function ChatInterface({
   accountLabel = '',
 }) {
   const [input, setInput] = useState('');
+  const [showExportMenu, setShowExportMenu] = useState(false);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -205,14 +207,37 @@ export default function ChatInterface({
           disabled={isLoading || (mode === 'codex' && !canStopCodex)}
           rows={3}
         />
-        <button
-          type={isLoading && mode !== 'codex' ? 'button' : 'submit'}
-          className="send-button"
-          onClick={isLoading && mode !== 'codex' ? onStopMessage : undefined}
-          disabled={isLoading ? false : (!input.trim() || (mode === 'codex' && !canStopCodex))}
-        >
-          {isLoading && mode !== 'codex' ? 'Stop' : 'Send'}
-        </button>
+        <div className="input-actions">
+          {mode !== 'codex' && conversation.messages.length > 0 && (
+            <div className="export-wrapper">
+              <button
+                type="button"
+                className="export-button"
+                onClick={() => setShowExportMenu((v) => !v)}
+              >
+                Export ▾
+              </button>
+              {showExportMenu && (
+                <div className="export-menu">
+                  <button type="button" onClick={() => { exportJSON(conversation); setShowExportMenu(false); }}>
+                    Export as JSON
+                  </button>
+                  <button type="button" onClick={() => { exportMarkdown(conversation); setShowExportMenu(false); }}>
+                    Export as Markdown
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          <button
+            type={isLoading && mode !== 'codex' ? 'button' : 'submit'}
+            className="send-button"
+            onClick={isLoading && mode !== 'codex' ? onStopMessage : undefined}
+            disabled={isLoading ? false : (!input.trim() || (mode === 'codex' && !canStopCodex))}
+          >
+            {isLoading && mode !== 'codex' ? 'Stop' : 'Send'}
+          </button>
+        </div>
       </form>
     </div>
   );
